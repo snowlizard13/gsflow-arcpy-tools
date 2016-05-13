@@ -1,9 +1,9 @@
 #--------------------------------
 # Name:         prism_800m_normals.py
-# Purpose:      GSFLOW PRISM parameters from default 400m normals
+# Purpose:      GSFLOW PRISM parameters from default 800m normals
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-05-13
 # Python:       2.7
 #--------------------------------
 
@@ -188,10 +188,10 @@ def prism_800m_parameters(config_path, data_name='ALL',
 
             # Project PRISM rasters to HRU coordinate system
             # DEADBEEF - Arc10.2 ProjectRaster does not extent
-#                support_functions.project_raster_func(
-#                    input_raster, output_raster, hru.sr,
-#                    prism_proj_method.upper(), prism_cs, transform_str,
-#                    '{0} {1}'.format(hru.ref_x, hru.ref_y), input_sr, hru)
+            support_functions.project_raster_func(
+                input_raster, output_raster, hru.sr,
+                prism_proj_method.upper(), prism_cs, transform_str,
+                '{0} {1}'.format(hru.ref_x, hru.ref_y), input_sr, hru)
             # arcpy.ProjectRaster_management(
             #    input_raster, output_raster, hru.sr,
             #    prism_proj_method.upper(), prism_cs, transform_str,

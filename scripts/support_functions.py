@@ -907,24 +907,25 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
     else:
         projected_extent = arcpy.Polygon(
             arcpy.Array(hru_points), hru_sr).projectAs(target_sr).extent
-    logging.debug('  Projected Extent: {0}'.format(
+    logging.debug('  Projected Extent:\n  {0}'.format(
         extent_string(projected_extent)))
     # Adjust extent to match snap
     projected_extent = adjust_extent_to_snap(
         projected_extent, target_extent.lowerLeft, target_cs, 'EXPAND', False)
-    logging.debug('  Snapped Extent:   {0}'.format(
+    logging.debug('  Snapped Extent:\n  {0}'.format(
         extent_string(projected_extent)))
     # Buffer extent 4 input cells
-    # projected_extent = buffer_extent_func(projected_extent, 4 * target_cs)
-    projected_extent = buffer_extent_func(
-        projected_extent, 4 * max(target_cs, hru_cs))
-    logging.debug('  Buffered Extent:  {0}'.format(
+    projected_extent = buffer_extent_func(projected_extent, 4 * target_cs)
+    # This will cause problems when target cellsize is in decimal degrees
+    # projected_extent = buffer_extent_func(
+    #     projected_extent, 4 * max(target_cs, hru_cs))
+    logging.debug('  Buffered Extent::\n  {0}'.format(
         extent_string(projected_extent)))
     return projected_extent
 
 
 def project_raster_func(input_raster, output_raster, output_sr,
-                        proj_method, input_cs, transform_str,
+                        proj_method, output_cs, transform_str,
                         reg_point, input_sr, hru_param):
     """"""
     # Input raster can be a raster object or a raster path
@@ -933,6 +934,10 @@ def project_raster_func(input_raster, output_raster, output_sr,
         input_extent = Raster(input_raster).extent
     except:
         input_extent = input_raster.extent
+    # This is the "actual" input cellsize 
+    #   and is needed to get the snapping
+    # This could be passed as an input to the function
+    input_cs = Raster(input_raster).meanCellWidth
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
     # Clip the input raster with the projected HRU extent first
     # Project extent from "output" to "input" to get clipping extent
@@ -947,7 +952,7 @@ def project_raster_func(input_raster, output_raster, output_sr,
     arcpy.ClearEnvironment('extent')
     # Then project the clipped raster
     arcpy.ProjectRaster_management(
-        clip_path, output_raster, output_sr, proj_method.upper(), input_cs,
+        clip_path, output_raster, output_sr, proj_method.upper(), output_cs,
         transform_str, reg_point, input_sr)
     # Cleanup
     arcpy.Delete_management(clip_path)
