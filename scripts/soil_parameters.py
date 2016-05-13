@@ -226,16 +226,16 @@ def soil_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # ssr2gw_rate_obj.save(ssr2gw_rate_path)
     # del ssr2gw_rate_obj
     #
-    #  Gravity drainage to groundwater reservoir linear coefficient
-    # logging.info('\nCalculating SLOWCOEF_L')
-    # logging.info('  Assuming slope is in degrees')
-    # logging.info('  Porosity is currently fixed at: {0}'.format(
-    # slowcoef_lin_obj = (
-    #    Raster(ksat_path) * math.sin(dem_slope_obj) /
-    #    (porosity_obj * hru_length_obj))
-    # slowcoef_lin_obj.save(slowcoef_lin_path)
-    # del slowcoef_lin_obj, hru_length_obj
-    # del dem_slope_obj, porosity_obj
+    # Gravity drainage to groundwater reservoir linear coefficient
+    logging.info('\nCalculating SLOWCOEF_L')
+    logging.info('  Assuming slope is in degrees')
+    logging.info('  Porosity is currently fixed at: {0}'.format(
+    slowcoef_lin_obj = (
+        Raster(ksat_path) * math.sin(dem_slope_obj) /
+        (porosity_obj * hru_length_obj))
+    slowcoef_lin_obj.save(slowcoef_lin_path)
+    del slowcoef_lin_obj, hru_length_obj
+    del dem_slope_obj, porosity_obj
 
     # List of rasters, fields, and stats for zonal statistics
     zs_soil_dict = dict()
