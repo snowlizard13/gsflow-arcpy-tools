@@ -221,7 +221,7 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
             ppt_zone_sr.name))
         logging.debug('  PPT zones GCS:         {0}'.format(
             ppt_zone_sr.GCS.name))
-        # Reset LAKE_ID
+        # Reset PPT_ZONE_ID
         if set_ppt_zones_flag:
             logging.info('  Resetting {0} to 0'.format(hru.ppt_zone_id_field))
             arcpy.CalculateField_management(
@@ -252,12 +252,12 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
                     pass
         # Set ppt zone ID
         logging.info('  Setting {0}'.format(hru.ppt_zone_id_field))
-        zone_by_centroid_func(
+        support_functions.zone_by_centroid_func(
             ppt_zone_path, hru.ppt_zone_id_field, ppt_zone_field,
-            hru.polygon_path, hru.point_path, hru_param)
+            hru.polygon_path, hru.point_path, hru)
         # zone_by_area_func(
         #    ppt_zone_layer, hru.ppt_zone_id_field, ppt_zone_field,
-        #    hru.polygon_path, hru_param, hru_area_field, None, 50)
+        #    hru.polygon_path, hru, hru_area_field, None, 50)
         # Cleanup
         del ppt_zone_desc, ppt_zone_sr
     else:

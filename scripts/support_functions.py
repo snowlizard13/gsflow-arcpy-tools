@@ -476,14 +476,21 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
             fields = [
                 f.name for f_i, f in enumerate(arcpy.ListFields(zs_table))
                 if f_i in [1, 4]]
+            logging.info(fields)
             for row in arcpy.da.SearchCursor(zs_table, fields):
                 # Set NoData value for cells that are entirely NoData
                 if row[1] is None:
                     data_dict[int(row[0])][zs_field] = nodata_value
                 else:
                     data_dict[int(row[0])][zs_field] = float(row[1])
-            arcpy.Delete_management(zs_obj)
-            arcpy.Delete_management(zs_table)
+            try:
+                arcpy.Delete_management(zs_obj)
+            except:
+                pass
+            try:
+                arcpy.Delete_management(zs_table)
+            except:
+                pass
             del zs_table, zs_obj, fields
 
         # Write values to polygon
