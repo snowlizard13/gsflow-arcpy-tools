@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW CRT fill parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
@@ -12,20 +12,16 @@ from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
+import math
 import os
-# import re
 import shutil
 import subprocess
 import sys
-# from time import clock
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
 
-# import numpy as np
-
-from support_functions import *
+import support_functions as support
 
 
 def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
@@ -41,7 +37,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -50,7 +46,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
 
     # Log DEBUG to file
@@ -88,7 +84,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist\n'.format(
+            '\nERROR: Fishnet ({}) does not exist\n'.format(
                 hru.polygon_path))
         sys.exit()
     # Check that input fields exist and have data
@@ -96,13 +92,13 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     for f in [hru.type_field, hru.row_field, hru.col_field]:
         if not arcpy.ListFields(hru.polygon_path, f):
             logging.error(
-                ('\nERROR: Input field {0} is not present in fishnet' +
+                ('\nERROR: Input field {} is not present in fishnet' +
                  '\nERROR: Try re-running hru_parameters.py\n').format(
                      f))
             sys.exit()
-        elif field_stat_func(hru.polygon_path, f, 'MAXIMUM') == 0:
+        elif support.field_stat_func(hru.polygon_path, f, 'MAXIMUM') == 0:
             logging.error(
-                ('\nERROR: Input field {0} contains only 0' +
+                ('\nERROR: Input field {} contains only 0' +
                  '\nERROR: Try re-running hru_parameters.py\n').format(
                      f))
             sys.exit()
@@ -111,17 +107,16 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
               hru.outflow_field, hru.subbasin_field]:
         if not arcpy.ListFields(hru.polygon_path, f):
             logging.error(
-                ('\nERROR: Input field {0} is not present in fishnet' +
+                ('\nERROR: Input field {} is not present in fishnet' +
                  '\nERROR: Try re-running dem_2_streams.py\n').format(
                      f))
             sys.exit()
-        elif field_stat_func(hru.polygon_path, f, 'MAXIMUM') == 0:
+        elif support.field_stat_func(hru.polygon_path, f, 'MAXIMUM') == 0:
             logging.error(
-                ('\nERROR: Input field {0} contains only 0' +
+                ('\nERROR: Input field {} contains only 0' +
                  '\nERROR: Try re-running dem_2_streams.py\n').format(
                      f))
             sys.exit()
-
 
     # Build output folder if necessary
     fill_ws = os.path.join(hru.param_ws, fill_ws_name)
@@ -134,31 +129,31 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
         shutil.copy(crt_exe_path, fill_ws)
     if not os.path.isfile(os.path.join(fill_ws, crt_exe_name)):
         logging.error(
-            '\nERROR: CRT executable ({0}) does not exist\n'.format(
+            '\nERROR: CRT executable ({}) does not exist\n'.format(
                 os.path.join(fill_ws, crt_exe_name)))
         sys.exit()
 
     # Fill files
-    fill_hru_casc_path    = os.path.join(fill_ws, 'HRU_CASC.DAT')
+    fill_hru_casc_path = os.path.join(fill_ws, 'HRU_CASC.DAT')
     fill_outflow_hru_path = os.path.join(fill_ws, 'OUTFLOW_HRU.DAT')
-    fill_land_elev_path   = os.path.join(fill_ws, 'LAND_ELEV.DAT')
-    fill_xy_path          = os.path.join(fill_ws, 'XY.DAT')
+    fill_land_elev_path = os.path.join(fill_ws, 'LAND_ELEV.DAT')
+    fill_xy_path = os.path.join(fill_ws, 'XY.DAT')
 
     # Output names
-    dem_adj_raster_name   = 'dem_adj'
-    hru_type_raster_name  = 'hru_type'
-    lakes_raster_name     = 'lakes'
-    streams_raster_name   = 'streams'
-    iseg_raster_name      = 'iseg'
-    irunbound_raster_name = 'irunbound'
+    dem_adj_raster_name = 'dem_adj'
+    hru_type_raster_name = 'hru_type'
+    # lakes_raster_name = 'lakes'
+    # streams_raster_name = 'streams'
+    # iseg_raster_name = 'iseg'
+    # irunbound_raster_name = 'irunbound'
 
     # Output raster paths
-    dem_adj_raster = os.path.join(fill_ws, dem_adj_raster_name+'.img')
-    hru_type_raster = os.path.join(fill_ws, hru_type_raster_name+'.img')
+    # dem_adj_raster = os.path.join(fill_ws, dem_adj_raster_name + '.img')
+    # hru_type_raster = os.path.join(fill_ws, hru_type_raster_name + '.img')
     # Output ascii paths
-    a_fmt = '{0}_ascii.txt'
-    dem_adj_ascii = os.path.join(fill_ws, a_fmt.format(dem_adj_raster_name))
-    hru_type_ascii = os.path.join(fill_ws, a_fmt.format(hru_type_raster_name))
+    a_fmt = '{}_ascii.txt'
+    # dem_adj_ascii = os.path.join(fill_ws, a_fmt.format(dem_adj_raster_name))
+    # hru_type_ascii = os.path.join(fill_ws, a_fmt.format(hru_type_raster_name))
 
 
     # Set ArcGIS environment variables
@@ -171,17 +166,17 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Add fields if necessary
     logging.info('\nAdding fields if necessary')
-    add_field_func(hru.polygon_path, hru.krch_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.irch_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.jrch_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.reach_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.krch_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.irch_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.jrch_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.reach_field, 'LONG')
     # add_field_func(hru.polygon_path, hru.rchlen_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.maxreach_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.outseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.crt_dem_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.crt_fill_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.maxreach_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.outseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.crt_dem_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.crt_fill_field, 'DOUBLE')
 
     # Calculate KRCH, IRCH, JRCH for stream segments
     logging.info("\nKRCH, IRCH, & JRCH for streams")
@@ -214,21 +209,21 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
             continue
         # Read in parameters
         cell = (int(row[7]), int(row[8]))
-        # next_row_col(FLOW_DIR, CELL)
+        # support.next_row_col(FLOW_DIR, CELL)
         # HRU_ID, ISEG,  NEXT_CELL, DEM_ADJ, X, X, X
         cell_dict[cell] = [
-            int(row[9]), int(row[4]), next_row_col(int(row[6]), cell),
+            int(row[9]), int(row[4]), support.next_row_col(int(row[6]), cell),
             float(row[5]), 0, 0, 0]
         del cell
     # Build list of unique segments
     iseg_list = sorted(list(set([v[1] for v in cell_dict.values()])))
 
     # Calculate IREACH and OUTSEG
-    logging.info("Calculate {0} and {1}".format(
+    logging.info("Calculate {} and {}".format(
         hru.reach_field, hru.outseg_field))
     outseg_dict = dict()
     for iseg in iseg_list:
-        # logging.debug("    Segment: {0}".format(iseg))
+        # logging.debug("    Segment: {}".format(iseg))
         # Subset of cell_dict for current iseg
         iseg_dict = dict(
             [(k, v) for k, v in cell_dict.items() if v[1] == iseg])
@@ -237,7 +232,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
         # List of out_cells for all cells in current iseg
         out_cells = [value[2] for value in iseg_dict.values()]
         # Every iseg will (should?) have one out_cell
-        out_cell = list(set(out_cells)-set(iseg_cells))[0]
+        out_cell = list(set(out_cells) - set(iseg_cells))[0]
         # If not output cell, assume edge of domain
         try:
             outseg = cell_dict[out_cell][1]
@@ -250,8 +245,8 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
             reach_dict = dict()
             start_cell = list(set(iseg_cells) - set(out_cells))[0]
             for i in xrange(len(out_cells)):
-                # logging.debug("    Reach: {0}  Cell: {1}".format(i+1, start_cell))
-                reach_dict[start_cell] = i+1
+                # logging.debug("    Reach: {}  Cell: {}".format(i+1, start_cell))
+                reach_dict[start_cell] = i + 1
                 start_cell = iseg_dict[start_cell][2]
             # For each cell in iseg, save outseg, reach, & maxreach
             for iseg_cell in iseg_cells:
@@ -267,7 +262,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
         del out_cells, out_cell, outseg
 
     # Saving ireach and outseg
-    logging.info("Save {0} and {1}".format(hru.reach_field, hru.outseg_field))
+    logging.info("Save {} and {}".format(hru.reach_field, hru.outseg_field))
     fields = [
         hru.type_field, hru.iseg_field, hru.col_field, hru.row_field,
         hru.outseg_field, hru.reach_field, hru.maxreach_field]
@@ -283,7 +278,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
             update_c.updateRow(row)
 
     # Set all lake iseg to 0
-    logging.info("Lake {0}".format(hru.iseg_field))
+    logging.info("Lake {}".format(hru.iseg_field))
     update_rows = arcpy.UpdateCursor(hru.polygon_path)
     for row in update_rows:
         if int(row.getValue(hru.type_field)) != 2:
@@ -320,7 +315,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Generate OUTFLOW_HRU.DAT for CRT
     # Outflow cells exit the model to inactive cells or out of the domain
     #   Outflow field is set in dem_2_streams
-    logging.info("  {0}".format(
+    logging.info("  {}".format(
         os.path.basename(fill_outflow_hru_path)))
     outflow_hru_list = []
     fields = [
@@ -331,10 +326,10 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
             outflow_hru_list.append([int(row[3]), int(row[4])])
     if outflow_hru_list:
         with open(fill_outflow_hru_path, 'w+') as f:
-            f.write('{0}    NUMOUTFLOWHRU\n'.format(
+            f.write('{}    NUMOUTFLOWHRU\n'.format(
                 len(outflow_hru_list)))
             for i, outflow_hru in enumerate(outflow_hru_list):
-                f.write('{0} {1} {2}   OUTFLOW_ID ROW COL\n'.format(
+                f.write('{} {} {}   OUTFLOW_ID ROW COL\n'.format(
                     i+1, outflow_hru[0], outflow_hru[1]))
         f.close()
     del outflow_hru_list
@@ -342,7 +337,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # # DEADBEEF - Old method for setting OUTFLOW_HRU.DAT
     # #   Only streams that flow to real gauges are used
     # # Generate OUTFLOW_HRU.DAT for CRT
-    # logging.info("  {0}".format(
+    # logging.info("  {}".format(
     #    os.path.basename(fill_outflow_hru_path)))
     # outflow_hru_list = []
     # fields = [
@@ -355,16 +350,16 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     #        outflow_hru_list.append([int(row[6]), int(row[5])])
     # if outflow_hru_list:
     #    with open(fill_outflow_hru_path, 'w+') as f:
-    #        f.write('{0}    NUMOUTFLOWHRU\n'.format(
+    #        f.write('{}    NUMOUTFLOWHRU\n'.format(
     #            len(outflow_hru_list)))
     #        for i, outflow_hru in enumerate(outflow_hru_list):
-    #            f.write('{0} {1} {2}   OUTFLOW_ID ROW COL\n'.format(
+    #            f.write('{} {} {}   OUTFLOW_ID ROW COL\n'.format(
     #                i+1, outflow_hru[0], outflow_hru[1]))
     #    f.close()
     # del outflow_hru_list
 
     # Generate HRU_CASC.DAT for CRT from hru_polygon
-    logging.info("  {0}".format(os.path.basename(fill_hru_casc_path)))
+    logging.info("  {}".format(os.path.basename(fill_hru_casc_path)))
     hru_type_dict = defaultdict(dict)
     for row in sorted(arcpy.da.SearchCursor(
         hru.polygon_path,
@@ -376,7 +371,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
         # Calculate CRT fill for all active cells
         hru_type_dict[int(row[0])][int(row[1])] = row[2]
     hru_casc_header = (
-        '{0} {1} {2} {3} {4} {5} {6} {7}     ' +
+        '{} {} {} {} {} {} {} {}     ' +
         'HRUFLG STRMFLG FLOWFLG VISFLG ' +
         'IPRN IFILL DPIT OUTITMAX\n').format(
             crt_hruflg, fill_strmflg, crt_flowflg, fill_visflg,
@@ -391,7 +386,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # with open(hru_type_ascii, 'r') as f: ascii_data = f.readlines()
     # f.close()
     # hru_casc_header = (
-    #    '{0} {1} {2} {3} {4} {5} {6} {7}     ' +
+    #    '{} {} {} {} {} {} {} {}     ' +
     #    'HRUFLG STRMFLG FLOWFLG VISFLG ' +
     #    'IPRN IFILL DPIT OUTITMAX\n').format(
     #        crt_hruflg, fill_strmflg, crt_flowflg, fill_visflg,
@@ -403,32 +398,32 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # del hru_casc_header, ascii_data
 
     # Generate LAND_ELEV.DAT for CRT from hru_polygon
-    logging.info("  {0}".format(os.path.basename(fill_land_elev_path)))
+    logging.info("  {}".format(os.path.basename(fill_land_elev_path)))
     dem_adj_dict = defaultdict(dict)
     for row in sorted(arcpy.da.SearchCursor(
         hru.polygon_path, [hru.row_field, hru.col_field, hru.dem_adj_field])):
         dem_adj_dict[int(row[0])][int(row[1])] = row[2]
     with open(fill_land_elev_path, 'w+') as f:
-        f.write('{0} {1}       NROW NCOL\n'.format(
+        f.write('{} {}       NROW NCOL\n'.format(
             len(dem_adj_dict.keys()), len(dem_adj_dict[1].keys())))
         for row, col_data in sorted(dem_adj_dict.items()):
             f.write(' '.join(
-                ['{0:10.6f}'.format(t) for c, t in sorted(col_data.items())])+'\n')
+                ['{:10.6f}'.format(t) for c, t in sorted(col_data.items())])+'\n')
     f.close()
     del dem_adj_dict
     # # Generate LAND_ELEV.DAT for CRT from raster/ascii
-    # logging.info("  {0}".format(os.path.basename(fill_land_elev_path)))
+    # logging.info("  {}".format(os.path.basename(fill_land_elev_path)))
     # with open(dem_adj_ascii, 'r') as f: ascii_data = f.readlines()
     # f.close()
     # with open(fill_land_elev_path, 'w+') as f:
-    #    f.write('{0} {1}       NROW NCOL\n'.format(
+    #    f.write('{} {}       NROW NCOL\n'.format(
     #        ascii_data[1].split()[1], ascii_data[0].split()[1]))
     #    for ascii_line in ascii_data[6:]: f.write(ascii_line)
     # f.close()
     # del ascii_data
 
     # Generate XY.DAT for CRT
-    logging.info("  {0}".format(os.path.basename(fill_xy_path)))
+    logging.info("  {}".format(os.path.basename(fill_xy_path)))
     xy_list = [
         map(int, row)
         for row in sorted(arcpy.da.SearchCursor(
@@ -446,7 +441,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     os.chdir(hru.param_ws)
 
     # Read in outputstat.txt and get filled DEM
-    logging.info("\nReading CRT {0}".format(output_name))
+    logging.info("\nReading CRT {}".format(output_name))
     output_path = os.path.join(fill_ws, output_name)
     with open(output_path, 'r') as f:
         output_data = [l.strip() for l in f.readlines()]
@@ -465,13 +460,13 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
             '\nERROR: CRT didn\'t completely run\n' +
             '  Check the CRT outputstat.txt file\n')
         sys.exit()
-    logging.info('  Break indices: {0}, {1}, {2}'.format(
+    logging.info('  Break indices: {}, {}, {}'.format(
         crt_dem_i, crt_fill_i, crt_type_i))
     crt_dem_data = [r.split() for r in output_data[crt_dem_i+1:crt_fill_i-1]]
     crt_fill_data = [r.split() for r in output_data[crt_fill_i+1:crt_type_i-1]]
-    logging.info('  ROWS/COLS: {0}/{1}'.format(
+    logging.info('  ROWS/COLS: {}/{}'.format(
         len(crt_dem_data), len(crt_dem_data[0])))
-    logging.info('  ROWS/COLS: {0}/{1}'.format(
+    logging.info('  ROWS/COLS: {}/{}'.format(
         len(crt_fill_data), len(crt_fill_data[0])))
 
     # Build dictionaries of the CRT data
@@ -486,14 +481,14 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Write CRT values to hru_polygon
     logging.info("Writing CRT data to fishnet")
-    logging.debug('  {0:<4s} {1:<4s} {2:>7s}'.format('ROW', 'COLD', 'FILL'))
+    logging.debug('  {:<4s} {:<4s} {:>7s}'.format('ROW', 'COLD', 'FILL'))
     fields = [hru.row_field, hru.col_field, hru.crt_dem_field, hru.crt_fill_field]
     with arcpy.da.UpdateCursor(hru.polygon_path, fields) as update_c:
         for row in update_c:
             row[2] = crt_dem_dict[int(row[0])][int(row[1])]
             row[3] = crt_fill_dict[int(row[0])][int(row[1])]
             if float(row[3]) > 0:
-                logging.debug('  {0:>4d} {1:>4d} {2:>7.2f}'.format(
+                logging.debug('  {:>4d} {:>4d} {:>7.2f}'.format(
                     row[0], row[1], float(row[3])))
             update_c.updateRow(row)
 
@@ -520,7 +515,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -534,9 +529,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

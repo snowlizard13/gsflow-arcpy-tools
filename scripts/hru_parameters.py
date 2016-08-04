@@ -3,26 +3,21 @@
 # Purpose:      GSFLOW HRU parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
 import argparse
-# from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
-# import math
 import os
-# import re
 import sys
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
-# import numpy as np
 
-from support_functions import *
+import support_functions as support
 
 
 def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
@@ -38,7 +33,7 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -47,7 +42,7 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
     logging.debug('\nReading Input File')
 
@@ -78,19 +73,20 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
     clip_root_depth_flag = inputs_cfg.getboolean('INPUTS', 'clip_root_depth_flag')
     # set_ppt_zones_flag = inputs_cfg.getboolean('INPUTS', 'set_ppt_zones_flag')
     # Calculate layer thickness and bottoms
-    calc_layer_thickness_flag = inputs_cfg.getboolean('INPUTS', 'calc_layer_thickness_flag')
+    calc_layer_thickness_flag = inputs_cfg.getboolean(
+        'INPUTS', 'calc_layer_thickness_flag')
 
 
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist'.format(
+            '\nERROR: Fishnet ({}) does not exist'.format(
                 hru.polygon_path))
         sys.exit()
     if set_lake_flag:
         if not arcpy.Exists(lake_orig_path):
             logging.error(
-                '\nERROR: Lake layer ({0}) does not exist'.format(
+                '\nERROR: Lake layer ({}) does not exist'.format(
                     lake_orig_path))
             sys.exit()
         # lake_path must be a polygon shapefile
@@ -102,11 +98,11 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         if lake_zone_field.upper() in ['', 'FID', 'NONE']:
             lake_zone_field = arcpy.Describe(lake_orig_path).OIDFieldName
             logging.warning(
-                '\n  NOTE: Using {0} to set {1}\n'.format(
+                '\n  NOTE: Using {} to set {}\n'.format(
                     lake_zone_field, hru.lake_id_field))
         elif not arcpy.ListFields(lake_orig_path, lake_zone_field):
             logging.error(
-                '\nERROR: lake_zone_field field {0} does not exist\n'.format(
+                '\nERROR: lake_zone_field field {} does not exist\n'.format(
                     lake_zone_field))
             sys.exit()
         # Need to check that lake_zone_field is an int type
@@ -114,7 +110,7 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
                   if (f.name == lake_zone_field and
                       f.type in ['SmallInteger', 'Integer'])]:
             logging.error(
-                '\nERROR: lake_zone_field field {0} must be an integer type\n'.format(
+                '\nERROR: lake_zone_field field {} must be an integer type\n'.format(
                     lake_zone_field))
             sys.exit()
 
@@ -157,10 +153,11 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         arcpy.AddField_management(
             hru.point_path, hru.fid_field, 'LONG')
         hru_centroid_list = [
-            row for row in  arcpy.da.SearchCursor(
+            row for row in arcpy.da.SearchCursor(
                 hru.polygon_path, ['OID@', 'SHAPE@XY'])]
         with arcpy.da.InsertCursor(
-            hru.point_path, ['OID@', 'SHAPE@XY', hru.fid_field]) as update_c:
+                hru.point_path,
+                ['OID@', 'SHAPE@XY', hru.fid_field]) as update_c:
             for hru_centroid in hru_centroid_list:
                 update_c.insertRow(
                     [hru_centroid[0], hru_centroid[1], hru_centroid[0]])
@@ -176,9 +173,11 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
             for field in field_remove_list:
                 if field in ['FID', 'Shape', hru.fid_field]:
                     continue
-                logging.debug('    {0}'.format(field))
-                try: arcpy.DeleteField_management(hru.point_path, field)
-                except: continue
+                logging.debug('    {}'.format(field))
+                try:
+                    arcpy.DeleteField_management(hru.point_path, field)
+                except:
+                    continue
         # Save original FID
         if len(arcpy.ListFields(hru.point_path, hru.fid_field)) == 0:
             arcpy.AddField_management(
@@ -193,137 +192,137 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         '  You may see duplicate field names when writing to a network drive')
 
     # HRU/DEM Fields
-    add_field_func(hru.polygon_path, hru.fid_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.id_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.type_in_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.type_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.dem_mean_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_median_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_min_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_max_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_adj_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.fid_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.id_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.type_in_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.type_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.dem_mean_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_median_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_min_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_max_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_adj_field, 'DOUBLE')
     if calc_flow_acc_dem_flag:
-        add_field_func(hru.polygon_path, hru.dem_flowacc_field, 'DOUBLE')
-        add_field_func(hru.polygon_path, hru.dem_sum_field, 'DOUBLE')
-        add_field_func(hru.polygon_path, hru.dem_count_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.crt_dem_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.crt_fill_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.elev_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.area_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.aspect_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.slope_deg_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.slope_rad_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.slope_pct_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.dem_flowacc_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.dem_sum_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.dem_count_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.crt_dem_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.crt_fill_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.elev_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.area_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.aspect_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.slope_deg_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.slope_rad_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.slope_pct_field, 'DOUBLE')
     if calc_topo_index_flag:
-        add_field_func(hru.polygon_path, hru.topo_index_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.row_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.col_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.x_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.y_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.lat_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.lon_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.topo_index_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.row_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.col_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.x_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.y_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.lat_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.lon_field, 'DOUBLE')
 
     # Lake fields
-    add_field_func(hru.polygon_path, hru.lake_id_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.lake_area_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.lake_id_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.lake_area_field, 'DOUBLE')
 
     # Stream fields
-    add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.flow_dir_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.krch_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.irch_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.jrch_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.reach_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.rchlen_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.maxreach_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.outseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.iupseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.subbasin_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.segbasin_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.outflow_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.strm_top_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.strm_slope_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.flow_dir_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.krch_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.irch_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.jrch_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.reach_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.rchlen_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.maxreach_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.outseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.iupseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.subbasin_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.segbasin_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.outflow_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.strm_top_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.strm_slope_field, 'FLOAT')
 
     # PPT Zone fields
     # if set_ppt_zones_flag:
-    add_field_func(hru.polygon_path, hru.ppt_zone_id_field, 'SHORT')
+    support.add_field_func(hru.polygon_path, hru.ppt_zone_id_field, 'SHORT')
 
     # DEM based
     # add_field_func(hru.polygon_path, hru.deplcrv_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.jh_tmax_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.jh_tmin_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.jh_coef_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.snarea_thresh_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.jh_tmax_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.jh_tmin_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.jh_coef_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.snarea_thresh_field, 'FLOAT')
 
     # Aspect based
-    add_field_func(hru.polygon_path, hru.tmax_adj_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.tmin_adj_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.tmax_adj_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.tmin_adj_field, 'FLOAT')
 
     # Vegetation fields
-    add_field_func(hru.polygon_path, hru.cov_type_field, 'SHORT')
-    add_field_func(hru.polygon_path, hru.covden_sum_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.covden_win_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.rad_trncf_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.snow_intcp_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.srain_intcp_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.wrain_intcp_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.cov_type_field, 'SHORT')
+    support.add_field_func(hru.polygon_path, hru.covden_sum_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.covden_win_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.rad_trncf_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.snow_intcp_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.srain_intcp_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.wrain_intcp_field, 'FLOAT')
 
     # Soil fields
-    add_field_func(hru.polygon_path, hru.awc_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.clay_pct_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.sand_pct_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.awc_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.clay_pct_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.sand_pct_field, 'FLOAT')
     # add_field_func(hru.polygon_path, hru.silt_pct_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.ksat_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.soil_depth_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.root_depth_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.soil_type_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.moist_init_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.moist_max_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.rechr_init_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.rechr_max_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.ssr2gw_rate_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.ksat_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.soil_depth_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.root_depth_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.soil_type_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.moist_init_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.moist_max_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.rechr_init_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.rechr_max_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.ssr2gw_rate_field, 'FLOAT')
     # add_field_func(hru.polygon_path, hru.pref_flow_den_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.slowcoef_lin_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.slowcoef_sq_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.fastcoef_lin_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.fastcoef_sq_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.slowcoef_lin_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.slowcoef_sq_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.fastcoef_lin_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.fastcoef_sq_field, 'FLOAT')
 
     # Impervious fields
-    add_field_func(hru.polygon_path, hru.imperv_pct_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.imperv_pct_field, 'FLOAT')
     # add_field_func(hru.polygon_path, hru.carea_min_field, 'FLOAT')
-    add_field_func(hru.polygon_path, hru.carea_max_field, 'FLOAT')
+    support.add_field_func(hru.polygon_path, hru.carea_max_field, 'FLOAT')
 
     # PRISM mean monthly fields
-    month_list = ['{0:02d}'.format(m) for m in range(1, 13)]
+    month_list = ['{:02d}'.format(m) for m in range(1, 13)]
     month_list.extend(['14'])
     for prism_data_name in ['PPT', 'TMAX', 'TMIN']:
         for month in month_list:
-            add_field_func(
+            support.add_field_func(
                 hru.polygon_path,
-                '{0}_{1}'.format(prism_data_name, month), 'FLOAT')
+                '{}_{}'.format(prism_data_name, month), 'FLOAT')
     # PRISM mean monthly PPT ratio fields
     for month in month_list:
         if month == '14':
             continue
-        add_field_func(
-            hru.polygon_path, 'PPT_RT_{0}'.format(month), 'FLOAT')
+        support.add_field_func(
+            hru.polygon_path, 'PPT_RT_{}'.format(month), 'FLOAT')
 
     # Layer thickness and bottom fields
     if calc_layer_thickness_flag:
-        add_field_func(hru.polygon_path, hru.alluv_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.alluv_thick_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay1_thick_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay2_thick_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay3_thick_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay4_thick_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay1_bottom_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay2_bottom_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay3_bottom_field, 'FLOAT')
-        add_field_func(hru.polygon_path, hru.lay4_bottom_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.alluv_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.alluv_thick_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay1_thick_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay2_thick_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay3_thick_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay4_thick_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay1_bottom_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay2_bottom_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay3_bottom_field, 'FLOAT')
+        support.add_field_func(hru.polygon_path, hru.lay4_bottom_field, 'FLOAT')
 
 
     # Id field is added by default to new fishnets
@@ -332,7 +331,7 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     logging.info('\nCalculating parameters')
     # Keep original FID for subsetting in zonal stats
-    logging.info('  Saving original HRU FID to {0}'.format(
+    logging.info('  Saving original HRU FID to {}'.format(
         hru.fid_field))
     arcpy.CalculateField_management(
         hru.polygon_path, hru.fid_field, '!FID!', 'PYTHON')
@@ -359,19 +358,19 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         hru.polygon_path, hru.area_field, '!SHAPE.AREA@acres!', 'PYTHON')
 
     # Reset HRUTYPE_IN / HRU_TYPE
-    logging.info('\nResetting {0} to 0'.format(hru.type_in_field))
+    logging.info('\nResetting {} to 0'.format(hru.type_in_field))
     arcpy.CalculateField_management(
         hru.polygon_path, hru.type_in_field, 0, 'PYTHON')
-    logging.info('Resetting {0} to 0'.format(hru.type_field))
+    logging.info('Resetting {} to 0'.format(hru.type_field))
     arcpy.CalculateField_management(
         hru.polygon_path, hru.type_field, 0, 'PYTHON')
     # Reset LAKE_ID
     if set_lake_flag:
-        logging.info('Resetting {0} to 0'.format(hru.lake_id_field))
+        logging.info('Resetting {} to 0'.format(hru.lake_id_field))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.lake_id_field, 0, 'PYTHON')
     if set_lake_flag:
-        logging.info('Resetting {0} to 0'.format(hru.lake_area_field))
+        logging.info('Resetting {} to 0'.format(hru.lake_area_field))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.lake_area_field, 0, 'PYTHON')
 
@@ -379,10 +378,10 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('\nCalculating cell HRU Type')
     study_area_desc = arcpy.Describe(study_area_orig_path)
     study_area_sr = study_area_desc.spatialReference
-    logging.debug('  Study area: {0}'.format(study_area_orig_path))
-    logging.debug('  Study area spat. ref.:  {0}'.format(
+    logging.debug('  Study area: {}'.format(study_area_orig_path))
+    logging.debug('  Study area spat. ref.:  {}'.format(
         study_area_sr.name))
-    logging.debug('  Study area GCS:         {0}'.format(
+    logging.debug('  Study area GCS:         {}'.format(
         study_area_sr.GCS.name))
     # If study area spat_ref doesn't match hru_param spat_ref
     # Project study area to hru_param spat ref
@@ -390,8 +389,8 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
     if hru.sr.name != study_area_sr.name:
         logging.info('  Projecting study area...')
         # Set preferred transforms
-        transform_str = transform_func(hru.sr, study_area_sr)
-        logging.debug('    Transform: {0}'.format(transform_str))
+        transform_str = support.transform_func(hru.sr, study_area_sr)
+        logging.debug('    Transform: {}'.format(transform_str))
         # Project study area shapefile
         arcpy.Project_management(
             study_area_orig_path, study_area_path, hru.sr,
@@ -399,7 +398,7 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         del transform_str
     else:
         arcpy.Copy_management(study_area_orig_path, study_area_path)
-    zone_by_centroid_func(
+    support.zone_by_centroid_func(
         study_area_path, hru.type_in_field, 1,
         hru.polygon_path, hru.point_path, hru)
 
@@ -409,9 +408,9 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         lake_layer = 'lake_layer'
         lake_desc = arcpy.Describe(lake_orig_path)
         lake_sr = lake_desc.spatialReference
-        logging.debug('  Lakes: {0}'.format(lake_orig_path))
-        logging.debug('  Lakes spat. ref.:  {0}'.format(lake_sr.name))
-        logging.debug('  Lakes GCS:         {0}'.format(lake_sr.GCS.name))
+        logging.debug('  Lakes: {}'.format(lake_orig_path))
+        logging.debug('  Lakes spat. ref.:  {}'.format(lake_sr.name))
+        logging.debug('  Lakes GCS:         {}'.format(lake_sr.GCS.name))
 
         # If lakes spat_ref doesn't match hru_param spat_ref
         # Project lakes to hru_param spat ref
@@ -419,8 +418,8 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
         if hru.sr.name != lake_sr.name:
             logging.info('  Projecting lakes...')
             # Set preferred transforms
-            transform_str = transform_func(hru.sr, lake_sr)
-            logging.debug('    Transform: {0}'.format(transform_str))
+            transform_str = support.transform_func(hru.sr, lake_sr)
+            logging.debug('    Transform: {}'.format(transform_str))
             # Project lakes shapefile
             arcpy.Project_management(
                 lake_orig_path, lake_path, hru.sr, transform_str, lake_sr)
@@ -442,14 +441,14 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
                     pass
 
         # Set lake HRU_TYPE
-        logging.info('  Setting lake {0}'.format(hru.type_in_field))
-        zone_by_area_func(
+        logging.info('  Setting lake {}'.format(hru.type_in_field))
+        support.zone_by_area_func(
             lake_clip_path, hru.type_in_field, 2,
             hru.polygon_path, hru, hru.area_field,
             hru.lake_area_field, lake_area_pct)
         # Set lake ID
-        logging.info('  Setting {0}'.format(hru.lake_id_field))
-        zone_by_area_func(
+        logging.info('  Setting {}'.format(hru.lake_id_field))
+        support.zone_by_area_func(
             lake_clip_path, hru.lake_id_field, lake_zone_field,
             hru.polygon_path, hru, hru.area_field,
             hru.lake_area_field, lake_area_pct)
@@ -458,11 +457,11 @@ def hru_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Copy HRUTYPE_IN for HRU_TYPE
     # HRU_TYPE can then be modified by later scripts
-    logging.info('\nCopying {0} to {1}'.format(
+    logging.info('\nCopying {} to {}'.format(
         hru.type_in_field, hru.type_field))
     arcpy.CalculateField_management(
         hru.polygon_path, hru.type_field,
-        '!{0}!'.format(hru.type_in_field), 'PYTHON')
+        '!{}!'.format(hru.type_in_field), 'PYTHON')
 
     # Cleanup
     del study_area_desc, study_area_sr
@@ -516,7 +515,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -530,9 +529,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW Flow Parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
@@ -12,19 +12,16 @@ from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
+import math
 import os
-# import re
 import sys
-# from time import clock
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
 
 import numpy as np
-# from scipy import ndimage
 
-from support_functions import *
+import support_functions as support
 
 
 def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
@@ -42,7 +39,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('\nGSFLOW Flow Parameters')
 
     # Initialize hru_parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -51,7 +48,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
     logging.debug('\nReading Input File')
 
@@ -79,24 +76,24 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         logging.debug('  mask_inactive_cells_flag = False')
         mask_inactive_cells_flag = False
 
-    # Only compute streams for active cells
-    try:
-        set_inactive_water_flag = inputs_cfg.getboolean(
-            'INPUTS', 'set_inactive_water_flag')
-    except:
-        logging.debug('  set_inactive_water_flag = False')
-        set_inactive_water_flag = False
+    # # Only compute streams for active cells
+    # try:
+    #     set_inactive_water_flag = inputs_cfg.getboolean(
+    #         'INPUTS', 'set_inactive_water_flag')
+    # except:
+    #     logging.debug('  set_inactive_water_flag = False')
+    #     set_inactive_water_flag = False
 
     # Subbasin points
     subbasin_input_path = inputs_cfg.get('INPUTS', 'subbasin_points_path')
     subbasin_zone_field = inputs_cfg.get('INPUTS', 'subbasin_zone_field')
 
-    # Flow parameters
-    try:
-        reset_dem_adj_flag = inputs_cfg.getboolean('INPUTS', 'reset_dem_adj_flag')
-    except:
-        logging.debug('  reset_dem_adj_flag = False')
-        reset_dem_adj_flag = False
+    # # Flow parameters
+    # try:
+    #     reset_dem_adj_flag = inputs_cfg.getboolean('INPUTS', 'reset_dem_adj_flag')
+    # except:
+    #     logging.debug('  reset_dem_adj_flag = False')
+    #     reset_dem_adj_flag = False
     calc_flow_dir_points_flag = inputs_cfg.getboolean(
         'INPUTS', 'calc_flow_dir_points_flag')
     calc_sinks_8_way_flag = inputs_cfg.getboolean(
@@ -106,7 +103,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     flow_acc_threshold = inputs_cfg.getint('INPUTS', 'flow_acc_threshold')
     flow_length_threshold = inputs_cfg.getint('INPUTS', 'flow_length_threshold')
     try:
-	    lake_seg_offset = inputs_cfg.getint('INPUTS', 'lake_seg_offset')
+        lake_seg_offset = inputs_cfg.getint('INPUTS', 'lake_seg_offset')
     except:
         lake_seg_offset = 0
     if lake_seg_offset < 0:
@@ -119,12 +116,12 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     dem_path = os.path.join(dem_temp_ws, 'dem.img')
     if not arcpy.Exists(dem_path):
         logging.error(
-            ('\nERROR: Projected/clipped DEM ({0}) does not exist' +
-            '\nERROR: Try rerunning dem_parameters.py').format(dem_path))
+            ('\nERROR: Projected/clipped DEM ({}) does not exist' +
+             '\nERROR: Try rerunning dem_parameters.py').format(dem_path))
         sys.exit()
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist'.format(hru.polygon_path))
+            '\nERROR: Fishnet ({}) does not exist'.format(hru.polygon_path))
         sys.exit()
 
     # Check subbasin_points
@@ -132,7 +129,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     if not os.path.isfile(subbasin_input_path):
         logging.error(
             ('\nERROR: Subbasin points shapefiles does not exist' +
-             '\nERROR:   {0}').format(subbasin_input_path))
+             '\nERROR:   {}').format(subbasin_input_path))
         sys.exit()
     # subbasin_zone_path must be a point shapefile
     elif arcpy.Describe(subbasin_input_path).datasetType != 'FeatureClass':
@@ -143,17 +140,18 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     if subbasin_zone_field.upper() in ['', 'FID', 'NONE']:
         subbasin_fid_field = arcpy.Describe(subbasin_input_path).OIDFieldName
         logging.warning(
-            '  NOTE: Using {0}+1 to set {1}\n'.format(
+            '  NOTE: Using {}+1 to set {}\n'.format(
                 subbasin_fid_field, hru.subbasin_field))
         subbasin_zone_field = 'ZONE_VALUE'
         if not arcpy.ListFields(subbasin_input_path, subbasin_zone_field):
-            arcpy.AddField_management(subbasin_input_path, subbasin_zone_field, 'LONG')
+            arcpy.AddField_management(
+                subbasin_input_path, subbasin_zone_field, 'LONG')
         arcpy.CalculateField_management(
             subbasin_input_path, subbasin_zone_field,
-            '!{0}! + 1'.format(subbasin_fid_field), 'PYTHON')
+            '!{}! + 1'.format(subbasin_fid_field), 'PYTHON')
     elif not arcpy.ListFields(subbasin_input_path, subbasin_zone_field):
         logging.error(
-            '\nERROR: subbasin_zone_field {0} does not exist\n'.format(
+            '\nERROR: subbasin_zone_field {} does not exist\n'.format(
                 subbasin_zone_field))
         sys.exit()
     # Need to check that subbasin_zone_field is an int type
@@ -161,12 +159,12 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
               if (f.name == subbasin_zone_field and
                   f.type in ['SmallInteger', 'Integer'])]:
         logging.error(
-            '\nERROR: subbasin_zone_field {0} must be an integer type\n'.format(
+            '\nERROR: subbasin_zone_field {} must be an integer type\n'.format(
                 subbasin_zone_field))
         sys.exit()
     # Need to check that subbasin_zone_field is all positive values
     if min([row[0] for row in arcpy.da.SearchCursor(
-        subbasin_input_path, [subbasin_zone_field])]) <= 0:
+            subbasin_input_path, [subbasin_zone_field])]) <= 0:
         logging.error(
             '\nERROR: subbasin_zone_field values must be positive\n'.format(
                 subbasin_zone_field))
@@ -183,7 +181,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     lake_id_path = os.path.join(flow_temp_ws, 'lake_id.img')
     dem_sink8_path = os.path.join(flow_temp_ws, 'dem_sink_8_way.img')
     dem_sink4_path = os.path.join(flow_temp_ws, 'dem_sink_4_way.img')
-    dem_edge_fill_path = os.path.join(flow_temp_ws, 'dem_edge_fill.img')
+    # dem_edge_fill_path = os.path.join(flow_temp_ws, 'dem_edge_fill.img')
     dem_fill_path = os.path.join(flow_temp_ws, 'dem_fill.img')
     flow_dir_path = os.path.join(flow_temp_ws, 'flow_dir.img')
     flow_dir_points = os.path.join(flow_temp_ws, 'flow_dir_points.shp')
@@ -211,12 +209,12 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Check DEM field
     logging.info('\nAdding DEM fields if necessary')
-    add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.flow_dir_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.outflow_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.iseg_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.flow_dir_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.outflow_field, 'DOUBLE')
 
     # Set environment parameters
     env.extent = hru.extent
@@ -225,21 +223,21 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Check that dem_adj_copy_field exists
     # if len(arcpy.ListFields(hru.polygon_path, dem_adj_copy_field)) == 0:
-    #    logging.error('\nERROR: dem_adj_copy_field {0} does not exist\n'.format(
+    #    logging.error('\nERROR: dem_adj_copy_field {} does not exist\n'.format(
     #        dem_adj_copy_field))
     #    sys.exit()
     # Reset DEM_ADJ
     # if reset_dem_adj_flag:
-    #    logging.info('\nResetting {0} to {1}'.format(
+    #    logging.info('\nResetting {} to {}'.format(
     #        dem_adj_field, dem_adj_copy_field))
     #    arcpy.CalculateField_management(
     #        hru.polygon_path, dem_adj_field,
-    #        '!{0}!'.format(dem_adj_copy_field), 'PYTHON')
+    #        '!{}!'.format(dem_adj_copy_field), 'PYTHON')
 
 
     # Check lake cell elevations
     if set_lake_flag:
-        logging.info('\nChecking lake cell {0}'.format(hru.dem_adj_field))
+        logging.info('\nChecking lake cell {}'.format(hru.dem_adj_field))
         lake_elev_dict = defaultdict(list)
         fields = [
             hru.type_in_field, hru.lake_id_field,
@@ -249,11 +247,11 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
                 continue
             lake_elev_dict[int(row[1])].append(float(row[2]))
         del fields
-        logging.info('  {0:>7} {1:>12} {2:>12} {3:>12} {4:>12}'.format(
+        logging.info('  {:>7} {:>12} {:>12} {:>12} {:>12}'.format(
             'Lake ID', 'Minimum', 'Mean', 'Maximum', 'Std. Dev.'))
         for lake_id, lake_elev_list in lake_elev_dict.items():
             lake_elev_array = np.array(lake_elev_list)
-            logging.info('  {0:7} {1:12f} {2:12f} {3:12f} {4:12f}'.format(
+            logging.info('  {:7} {:12f} {:12f} {:12f} {:12f}'.format(
                 lake_id, np.min(lake_elev_array), np.mean(lake_elev_array),
                 np.max(lake_elev_array), np.std(lake_elev_array)))
             if np.std(lake_elev_array) > 1:
@@ -270,7 +268,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     arcpy.PolygonToRaster_conversion(
         hru.polygon_path, hru.type_in_field, hru_type_in_path,
         "CELL_CENTER", "", hru.cs)
-    hru_type_in_obj = Raster(hru_type_in_path)
+    hru_type_in_obj = arcpy.sa.Raster(hru_type_in_path)
 
     # Convert DEM_ADJ to raster
     logging.debug('  DEM_ADJ')
@@ -280,27 +278,28 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     if mask_inactive_cells_flag:
         # Set DEM_ADJ for inactive cells to nodata
         # This will force flow direction/accumulation to be in the study area
-        dem_adj_obj = Con(hru_type_in_obj != 0, Raster(dem_adj_path))
+        dem_adj_obj = arcpy.sa.Con(
+            hru_type_in_obj != 0, arcpy.sa.Raster(dem_adj_path))
     else:
-        dem_adj_obj = Raster(dem_adj_path)
+        dem_adj_obj = arcpy.sa.Raster(dem_adj_path)
 
     if set_lake_flag:
         logging.debug('  LAKE_ID')
         arcpy.PolygonToRaster_conversion(
             hru.polygon_path, hru.lake_id_field, lake_id_path,
             "CELL_CENTER", "", hru.cs)
-        lake_id_obj = Raster(lake_id_path)
+        lake_id_obj = arcpy.sa.Raster(lake_id_path)
 
     # Flow Direction
     logging.info('\nCalculating flow direction')
-    flow_dir_obj = FlowDirection(dem_adj_obj, False)
+    flow_dir_obj = arcpy.sa.FlowDirection(dem_adj_obj, False)
     # flow_dir_obj = FlowDirection(dem_adj_obj, True)
     flow_dir_obj.save(flow_dir_path)
 
 
     # Fill DEM_ADJ raster
     logging.info('Filling DEM_ADJ (8-way)')
-    dem_fill_obj = Fill(dem_adj_obj)
+    dem_fill_obj = arcpy.sa.Fill(dem_adj_obj)
     dem_fill_obj.save(dem_fill_path)
 
     # Need to determine if cells were filled so that flow direction
@@ -311,10 +310,11 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Sinks (8-way)
     if calc_sinks_8_way_flag:
         logging.info('Calculating sinks (8-way)')
-        dem_sink8_obj = Con(
-            ~IsNull(Sink(flow_dir_obj)), (dem_fill_obj - dem_adj_obj))
+        dem_sink8_obj = arcpy.sa.Con(
+            ~arcpy.sa.IsNull(arcpy.sa.Sink(flow_dir_obj)),
+            (dem_fill_obj - dem_adj_obj))
         dem_sink8_obj.save(dem_sink8_path)
-        dem_sink8_array = raster_path_to_array(
+        dem_sink8_array = support.raster_path_to_array(
             dem_sink8_path, return_nodata=False)
         if np.all(np.isnan(dem_sink8_array)):
             logging.info('  No sinks (8-way)')
@@ -325,15 +325,15 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Sinks (4-way)
     if calc_sinks_4_way_flag:
         logging.info('Calculating sinks (4-way)')
-        dem_adj_array = raster_obj_to_array(
+        dem_adj_array = support.raster_obj_to_array(
             dem_adj_obj, return_nodata=False).astype(np.float)
-        dem_sink4_array = flood_fill(dem_adj_array, True)
+        dem_sink4_array = support.flood_fill(dem_adj_array, True)
         dem_sink4_array -= dem_adj_array
         dem_sink4_array[dem_sink4_array == 0] = np.nan
         pnt = arcpy.Point()
         pnt.X = hru.extent.XMin
         pnt.Y = hru.extent.YMin
-        array_to_raster(dem_sink4_array, dem_sink4_path, pnt, hru.cs)
+        support.array_to_raster(dem_sink4_array, dem_sink4_path, pnt, hru.cs)
         if np.all(np.isnan(dem_sink4_array)):
             logging.info('  No sinks (4-way)')
         # Don't set fill_flag here since ArcGIS fill function
@@ -346,7 +346,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Recaculate Flow Direction
     if fill_flag:
         logging.info('Re-calculating flow direction')
-        flow_dir_obj = FlowDirection(dem_fill_obj, True)
+        flow_dir_obj = arcpy.sa.FlowDirection(dem_fill_obj, True)
         flow_dir_obj.save(flow_dir_path)
 
     # Save flow direction as points
@@ -372,14 +372,14 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
             '    elif value == 128: return 315\n')
         arcpy.CalculateField_management(
             flow_dir_points, 'grid_code',
-            'Reclass(!{0}!)'.format('grid_code'), 'PYTHON', remap_cb)
+            'Reclass(!{}!)'.format('grid_code'), 'PYTHON', remap_cb)
 
     # Write flow direction to hru_polygon
     logging.debug('  Extracting flow direction at points')
     vt_list = [[flow_dir_path, hru.flow_dir_field]]
     mem_point_path = os.path.join('in_memory', 'hru_point')
     arcpy.CopyFeatures_management(hru.point_path, mem_point_path)
-    ExtractMultiValuesToPoints(mem_point_path, vt_list, 'NONE')
+    arcpy.sa.ExtractMultiValuesToPoints(mem_point_path, vt_list, 'NONE')
     logging.debug('  Reading flow direction values at point')
     data_dict = defaultdict(dict)
     fields = [hru.flow_dir_field, hru.fid_field]
@@ -410,31 +410,31 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     subbasin_id_list = sorted(list(set(
         [row[0] for row in arcpy.da.SearchCursor(
             subbasin_input_path, [subbasin_zone_field])])))
-    if subbasin_id_list != range(1,len(subbasin_id_list)+1):
+    if subbasin_id_list != range(1, len(subbasin_id_list) + 1):
         logging.error(
             ('\nERROR: SUB_BASINs must be sequential starting from 1' +
-             '\nERROR:   {0}').format(subbasin_id_list))
+             '\nERROR:   {}').format(subbasin_id_list))
         sys.exit()
     subbasin_input_count = len(subbasin_id_list)
     logging.debug('  {} subbasins'.format(subbasin_input_count))
     # Get spatial reference of subbasin_points
     subbasin_points_desc = arcpy.Describe(subbasin_input_path)
     subbasin_points_sr = subbasin_points_desc.spatialReference
-    logging.debug('  Subbasin points spat. ref.:  {0}'.format(
+    logging.debug('  Subbasin points spat. ref.:  {}'.format(
         subbasin_points_sr.name))
-    logging.debug('  Subbasin points GCS:         {0}'.format(
+    logging.debug('  Subbasin points GCS:         {}'.format(
         subbasin_points_sr.GCS.name))
     if arcpy.Exists(subbasin_points_path):
         arcpy.Delete_management(subbasin_points_path)
     # Project points if necessary
     if hru.sr.name != subbasin_points_sr.name:
         # Set preferred transforms
-        transform_str = transform_func(hru.sr, subbasin_points_sr)
-        logging.debug('    Transform: {0}'.format(transform_str))
+        transform_str = support.transform_func(hru.sr, subbasin_points_sr)
+        logging.debug('    Transform: {}'.format(transform_str))
         # Project subbasin_points to match HRU_Polygon
         logging.debug('  Projecting subbasin_points')
-        logging.debug('    {0}'.format(subbasin_input_path))
-        logging.debug('    {0}'.format(subbasin_points_path))
+        logging.debug('    {}'.format(subbasin_input_path))
+        logging.debug('    {}'.format(subbasin_points_path))
         arcpy.ClearEnvironment("outputCoordinateSystem")
         arcpy.ClearEnvironment("extent")
         # env.scratchWorkspace = scratch_ws
@@ -454,7 +454,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.debug('  Reading input subbasin points')
     hru_polygon_lyr = "hru_polygon_lyt"
     arcpy.MakeFeatureLayer_management(hru.polygon_path, hru_polygon_lyr)
-    arcpy.SelectLayerByLocation_management (
+    arcpy.SelectLayerByLocation_management(
         hru_polygon_lyr, "intersect", subbasin_points_path)
     input_xy_dict = dict()
     fields = [hru.col_field, hru.row_field, hru.x_field, hru.y_field]
@@ -464,7 +464,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     arcpy.Delete_management(hru_polygon_lyr)
     del hru_polygon_lyr
     # for k,v in input_xy_dict.items():
-    #    logging.debug('    {0} {1}'.format(k,v))
+    #    logging.debug('    {} {}'.format(k,v))
 
     logging.info('\nBuilding all subbasin points')
     # First calculate downstream cell for all cells
@@ -477,7 +477,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         hru.col_field, hru.row_field, hru.x_field, hru.y_field]
     for row in arcpy.da.SearchCursor(hru.polygon_path, fields):
         cell = (int(row[3]), int(row[4]))
-        out_cell_dict[cell] = next_row_col(int(row[1]), cell)
+        out_cell_dict[cell] = support.next_row_col(int(row[1]), cell)
         hru_type_in_dict[cell] = int(row[0])
         cell_xy_dict[cell] = (int(row[5]), int(row[6]))
 
@@ -493,19 +493,19 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         # elif cell not in hru_type_in_dict.keys():
         if cell not in hru_type_in_dict.keys():
             continue
-        elif hru_type_in_dict[cell] not in [1,2]:
+        elif hru_type_in_dict[cell] not in [1, 2]:
             continue
         elif cell not in out_cell_dict.keys():
             continue
         elif out_cell_dict[cell] not in hru_type_in_dict.keys():
             out_cell_xy_list.append(cell_xy)
         elif (out_cell_dict[cell] in hru_type_in_dict.keys() and
-              hru_type_in_dict[out_cell_dict[cell]] not in [1,2]):
+              hru_type_in_dict[out_cell_dict[cell]] not in [1, 2]):
             out_cell_xy_list.append(cell_xy)
     fields = ["SHAPE@XY", subbasin_zone_field]
     with arcpy.da.InsertCursor(subbasin_points_path, fields) as insert_c:
         for out_cell_xy in sorted(out_cell_xy_list):
-            insert_c.insertRow([out_cell_xy, subbasin_input_count+1])
+            insert_c.insertRow([out_cell_xy, subbasin_input_count + 1])
     del fields
 
 
@@ -531,9 +531,9 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Flow Accumulation
     logging.info('\nCalculating initial flow accumulation')
-    flow_acc_full_obj = FlowAccumulation(flow_dir_obj)
-    logging.info('  Only keeping flow_acc >= {0}'.format(flow_acc_threshold))
-    flow_acc_full_obj = Con(
+    flow_acc_full_obj = arcpy.sa.FlowAccumulation(flow_dir_obj)
+    logging.info('  Only keeping flow_acc >= {}'.format(flow_acc_threshold))
+    flow_acc_full_obj = arcpy.sa.Con(
         flow_acc_full_obj >= flow_acc_threshold, flow_acc_full_obj)
     flow_acc_full_obj.save(flow_acc_full_path)
     # logging.info('  Only keeping active cells for subset')
@@ -543,18 +543,18 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Flow accumulation and stream link with lakes
     logging.info('\nCalculating flow accumulation & stream link (w/ lakes)')
-    flow_acc_obj = Con(
+    flow_acc_obj = arcpy.sa.Con(
         ((hru_type_in_obj == 1) | (hru_type_in_obj == 2)), flow_acc_full_obj)
     # flow_acc_obj.save(flow_acc_sub_path)
-    stream_link_obj = StreamLink(flow_acc_obj, flow_dir_obj)
+    stream_link_obj = arcpy.sa.StreamLink(flow_acc_obj, flow_dir_obj)
     stream_link_obj.save(stream_link_a_path)
     del flow_acc_obj, stream_link_obj
 
     # Flow accumulation and stream link without lakes
     logging.info('Calculating flow accumulation & stream link (w/o lakes)')
-    flow_acc_obj = Con((hru_type_in_obj == 1), flow_acc_full_obj)
+    flow_acc_obj = arcpy.sa.Con((hru_type_in_obj == 1), flow_acc_full_obj)
     # flow_acc_obj.save(flow_acc_sub_path)
-    stream_link_obj = StreamLink(flow_acc_obj, flow_dir_obj)
+    stream_link_obj = arcpy.sa.StreamLink(flow_acc_obj, flow_dir_obj)
     stream_link_obj.save(stream_link_b_path)
     del flow_acc_obj, stream_link_obj
 
@@ -568,18 +568,18 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.debug(
         '  Using SHREVE ordering so after 1st order are removed, ' +
         '2nd order will only be dangles')
-    stream_order_obj = StreamOrder(
+    stream_order_obj = arcpy.sa.StreamOrder(
         stream_link_a_path, flow_dir_obj, 'SHREVE')
     stream_order_obj.save(stream_order_path)
     # Stream Length (cell count w/o lakes)
     logging.info('Calculating stream length (cell count w/o lakes)')
-    stream_length_obj = Lookup(stream_link_b_path, 'Count')
+    stream_length_obj = arcpy.sa.Lookup(stream_link_b_path, 'Count')
     stream_length_obj.save(stream_length_path)
     # Filter 1st order segments
     logging.info(
-        ('\nFilter all 1st order streams with length < {0}' +
-     '\nKeep all higher order streams').format(
-             flow_length_threshold))
+        ('\nFilter all 1st order streams with length < {}' +
+         '\nKeep all higher order streams').format(
+            flow_length_threshold))
     # Stream length is nodata for lakes, so put lakes back in
     # This removes short 1st order streams off of lakes
     flow_mask_obj = (
@@ -587,13 +587,13 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         ((stream_order_obj == 1) &
          (stream_length_obj >= flow_length_threshold)))
     flow_mask_obj.save(flow_mask_path)
-    flow_acc_sub_obj = Con(flow_mask_obj, flow_acc_full_obj)
+    flow_acc_sub_obj = arcpy.sa.Con(flow_mask_obj, flow_acc_full_obj)
     flow_acc_sub_obj.save(flow_acc_sub_path)
     del flow_mask_obj, stream_order_obj, stream_length_obj
 
     # Final Stream Link
     logging.info('\nCalculating final stream link')
-    stream_link_obj = StreamLink(flow_acc_sub_obj, flow_dir_obj)
+    stream_link_obj = arcpy.sa.StreamLink(flow_acc_sub_obj, flow_dir_obj)
     # Get count of streams for automatically setting lake_seg_offset
     if not lake_seg_offset:
         lake_seg_count = int(
@@ -602,11 +602,11 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         lake_seg_offset = int(math.ceil((lake_seg_count + 1) / n)) * int(n)
         logging.info(
             ('  lake_segment_offset was not set in the input file\n' +
-             '  Using automatic lake segment offset: {0}').format(
+             '  Using automatic lake segment offset: {}').format(
                  lake_seg_offset))
     elif set_lake_flag:
         logging.info(
-            ('  Using manual lake segment offset: {0}').format(lake_seg_offset))
+            ('  Using manual lake segment offset: {}').format(lake_seg_offset))
     # Include lake cells into "stream_link" before calculating watersheds
     # Watershed function doesn't work for negative values
     # Convert lakes to large positive numbers for Watershed
@@ -617,34 +617,34 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
              '  This will allow for a watershed/subbasin for the lakes\n' +
              '  {2} will be save as negative of {0} though').format(
                  hru.lake_id_field, lake_seg_offset, hru.iseg_field))
-        stream_link_obj = Con(
+        stream_link_obj = arcpy.sa.Con(
             (hru_type_in_obj == 2),
             (lake_id_obj + lake_seg_offset), stream_link_obj)
     stream_link_obj.save(stream_link_path)
 
     # Watersheds
     logging.info('Calculating watersheds')
-    watersheds_obj = Watershed(flow_dir_obj, stream_link_obj)
+    watersheds_obj = arcpy.sa.Watershed(flow_dir_obj, stream_link_obj)
     watersheds_obj.save(watersheds_path)
     del stream_link_obj, watersheds_obj
 
     # Subbasins
     logging.info('Calculating subbasins')
-    subbasin_obj = Watershed(
+    subbasin_obj = arcpy.sa.Watershed(
         flow_dir_obj, subbasin_points_path, subbasin_zone_field)
     subbasin_obj.save(subbasin_path)
     del subbasin_obj
 
     # Basins
     logging.info('Calculating basins')
-    basin_obj = Basin(flow_dir_obj)
+    basin_obj = arcpy.sa.Basin(flow_dir_obj)
     basin_obj.save(basin_path)
     del basin_obj
 
     # Clear subbasin value if HRU_TYPE_IN is 0
     logging.info('Clearing subbasin ID for inactive cells')
-    subbasin_obj = SetNull(
-        hru_type_in_obj, Raster(subbasin_path), "VALUE=0")
+    subbasin_obj = arcpy.sa.SetNull(
+        hru_type_in_obj, arcpy.sa.Raster(subbasin_path), "VALUE=0")
     subbasin_obj.save(subbasin_path)
     del subbasin_obj
 
@@ -668,7 +668,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # ArcGIS fails for raster_to_x conversions on a network path
     # You have to go through an in_memory file first
     streams_temp = os.path.join('in_memory', 'streams')
-    StreamToFeature(
+    arcpy.sa.StreamToFeature(
         stream_link_path, flow_dir_obj, streams_temp, 'NO_SIMPLIFY')
     arcpy.CopyFeatures_management(streams_temp, streams_path)
     arcpy.Delete_management(streams_temp)
@@ -685,7 +685,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         [hru_type_path, hru.type_field]]
     mem_point_path = os.path.join('in_memory', 'hru_point')
     arcpy.CopyFeatures_management(hru.point_path, mem_point_path)
-    ExtractMultiValuesToPoints(mem_point_path, vt_list, 'NONE')
+    arcpy.sa.ExtractMultiValuesToPoints(mem_point_path, vt_list, 'NONE')
     del vt_list
 
     # Read values from points
@@ -749,7 +749,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
         logging.info('\nExtracting sink values')
         mem_point_path = os.path.join('in_memory', 'hru_point')
         arcpy.CopyFeatures_management(hru.point_path, mem_point_path)
-        ExtractMultiValuesToPoints(mem_point_path, vt_list, 'NONE')
+        arcpy.sa.ExtractMultiValuesToPoints(mem_point_path, vt_list, 'NONE')
         # Read wink values from points
         logging.info('  Reading sink values')
         data_dict = defaultdict(dict)
@@ -777,11 +777,9 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
                 u_cursor.updateRow(row)
                 del row_dict, row
 
-
     # Cleanup
     arcpy.Delete_management(mem_point_path)
     del mem_point_path, vt_list, data_dict, field
-
 
     # Re-Calculate HRU_ELEV
     # logging.info('Calculating HRU_ELEV from DEM_ADJ')
@@ -789,8 +787,7 @@ def flow_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # arcpy.CalculateField_management(
     #    hru.polygon_path, hru_elev_field,
     #    # Convert meters to feet
-    #    '!{0}! * 3.28084'.format(dem_adj_field), 'PYTHON')
-
+    #    '!{}! * 3.28084'.format(dem_adj_field), 'PYTHON')
 
     # Cleanup
     del dem_fill_obj
@@ -813,7 +810,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -827,9 +824,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

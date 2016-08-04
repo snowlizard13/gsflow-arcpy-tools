@@ -3,26 +3,22 @@
 # Purpose:      Fill PRMS Parameter File Template
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
 import argparse
 from collections import defaultdict
 import ConfigParser
-# import csv
 import datetime as dt
-# import itertools
 import logging
 import operator
 import os
-# import re
 import sys
 
 import arcpy
-# from arcpy import env
 
-from support_functions import *
+import support_functions as support
 
 
 def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
@@ -38,7 +34,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     config = ConfigParser.ConfigParser()
@@ -47,7 +43,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error(('\nERROR: Config file could not be read, ' +
                        'is not an input file, or does not exist\n' +
-                       'ERROR: config_file = {0}\n').format(config_path))
+                       'ERROR: config_file = {}\n').format(config_path))
         sys.exit()
 
     # Log DEBUG to file
@@ -91,7 +87,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist'.format(
+            '\nERROR: Fishnet ({}) does not exist'.format(
                 hru.polygon_path))
         sys.exit()
     # if not os.path.isfile(prms_template_path):
@@ -108,35 +104,35 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     if not os.path.isdir(crt_ws):
         logging.error(
             ('\nERROR: Cascades folder does not exist' +
-             '\nERROR:   {0}' +
+             '\nERROR:   {}' +
              '\nERROR: Try re-running CRT using stream_parameters.py\n').format(
                  crt_ws))
         sys.exit()
     if not os.path.isfile(crt_dimension_path):
         logging.error(
             ('\nERROR: Cascades dimension file does not exist' +
-             '\nERROR:   {0}' +
+             '\nERROR:   {}' +
              '\nERROR: Try re-running CRT using stream_parameters.py\n').format(
                  crt_dimension_path))
         sys.exit()
     if not os.path.isfile(crt_parameter_path):
         logging.error(
             ('\nERROR: Cascades parameter file does not exist' +
-             '\nERROR:   {0}' +
+             '\nERROR:   {}' +
              '\nERROR: Try re-running CRT using stream_parameters.py\n').format(
                  crt_parameter_path))
         sys.exit()
     if not os.path.isfile(crt_gw_parameter_path):
         logging.error(
             ('\nERROR: Groundwater cascades parameter file does not exist' +
-             '\nERROR:   {0}' +
+             '\nERROR:   {}' +
              '\nERROR: Try re-running CRT using crt_fill_work.py\n').format(
                  crt_gw_parameter_path))
         sys.exit()
     # if not os.path.isfile(crt_gw_parameter_path):
     #    logging.error(
     #        ('\nERROR: Groundwater cascades parameter file does not exist' +
-    #         '\nERROR:   {0}' +
+    #         '\nERROR:   {}' +
     #         '\nERROR: Try re-running CRT using stream_parameters\n').format(
     #             crt_gw_parameter_path))
     #    sys.exit()
@@ -145,7 +141,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     # Get number of cells in fishnet
     fishnet_count = int(arcpy.GetCount_management(
         hru.polygon_path).getOutput(0))
-    logging.info('  Fishnet cells: {0}'.format(fishnet_count))
+    logging.info('  Fishnet cells: {}'.format(fishnet_count))
 
 
     # Read in dimensions from CSV
@@ -170,48 +166,48 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     # These parameters equal the fishnet cell count
     for dimen_name in ['ngw', 'ngwcell', 'nhru', 'nhrucell', 'nssr']:
         dimen_size_dict[dimen_name] = fishnet_count
-        logging.info('  {0} = {1}'.format(
+        logging.info('  {} = {}'.format(
             dimen_name, dimen_size_dict[dimen_name]))
 
     # Getting number of lakes
     logging.info('\nCalculating number of lake cells')
-    logging.info('  Lake cells are {0} >= 0'.format(
+    logging.info('  Lake cells are {} >= 0'.format(
         hru.lake_id_field))
     value_fields = (hru.id_field, hru.lake_id_field)
     with arcpy.da.SearchCursor(hru.polygon_path, value_fields) as s_cursor:
         dimen_size_dict['nlake'] = len(list(
             [int(row[1]) for row in s_cursor if int(row[1]) > 0]))
-    logging.info('  nlakes = {0}'.format(dimen_size_dict['nlake']))
+    logging.info('  nlakes = {}'.format(dimen_size_dict['nlake']))
 
     # Getting number of stream cells
     logging.info('Calculating number of stream cells')
-    logging.info('  Stream cells are {0} >= 0'.format(
+    logging.info('  Stream cells are {} >= 0'.format(
         hru.krch_field))
     value_fields = (hru.id_field, hru.krch_field)
     with arcpy.da.SearchCursor(hru.polygon_path, value_fields) as s_cursor:
         dimen_size_dict['nreach'] = len(list(
             [int(row[1]) for row in s_cursor if int(row[1]) > 0]))
-    logging.info('  nreach = {0}'.format(dimen_size_dict['nreach']))
+    logging.info('  nreach = {}'.format(dimen_size_dict['nreach']))
 
     # Getting number of stream segments
     logging.info('Calculating number of unique stream segments')
-    logging.info('  Stream segments are {0} >= 0'.format(
+    logging.info('  Stream segments are {} >= 0'.format(
         hru.iseg_field))
     value_fields = (hru.id_field, hru.iseg_field)
     with arcpy.da.SearchCursor(hru.polygon_path, value_fields) as s_cursor:
         dimen_size_dict['nsegment'] = len(list(set(
             [int(row[1]) for row in s_cursor if int(row[1]) > 0])))
-    logging.info('  nsegment = {0}'.format(dimen_size_dict['nsegment']))
+    logging.info('  nsegment = {}'.format(dimen_size_dict['nsegment']))
 
     # Getting number of subbasins
     logging.info('Calculating number of unique subbasins')
-    logging.info('  Subbasins are {0} >= 0'.format(
+    logging.info('  Subbasins are {} >= 0'.format(
         hru.subbasin_field))
     value_fields = (hru.id_field, hru.subbasin_field)
     with arcpy.da.SearchCursor(hru.polygon_path, value_fields) as s_cursor:
         dimen_size_dict['nsub'] = len(list(set(
             [int(row[1]) for row in s_cursor if int(row[1]) > 0])))
-    logging.info('  nsub = {0}'.format(dimen_size_dict['nsub']))
+    logging.info('  nsub = {}'.format(dimen_size_dict['nsub']))
 
     # Read in CRT dimensions
     logging.info('\nReading CRT dimensions')
@@ -221,9 +217,9 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     crt_dimen_break_i_list = [
         i for i, x in enumerate(crt_dimen_lines) if x == break_str]
     for i in crt_dimen_break_i_list:
-        logging.info('  {0} = {1}'.format(
-            crt_dimen_lines[i+1], crt_dimen_lines[i+2]))
-        dimen_size_dict[crt_dimen_lines[i+1]] = int(crt_dimen_lines[i+2])
+        logging.info('  {} = {}'.format(
+            crt_dimen_lines[i + 1], crt_dimen_lines[i + 2]))
+        dimen_size_dict[crt_dimen_lines[i + 1]] = int(crt_dimen_lines[i + 2])
     del crt_dimen_lines, crt_dimen_break_i_list
 
     # Link HRU fishnet field names to parameter names in '.param'
@@ -253,8 +249,8 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
         param_type = int(line[header.index('TYPE')])
         if param_type not in [1, 2, 3, 4]:
             logging.error(
-                ('\nERROR: Parameter type {0} is invalid' +
-                 '\nERROR: {1}').format(param_type, line))
+                ('\nERROR: Parameter type {} is invalid' +
+                 '\nERROR: {}').format(param_type, line))
             sys.exit()
         # This will initially read defaults in as a list
         param_default = line[header.index('DEFAULT_VALUE'):]
@@ -279,8 +275,8 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
                 pass
             else:
                 logging.error(
-                    ('\nERROR: Default value {0} was not parsed' +
-                     '\nERROR: {1}').format(param_default, line))
+                    ('\nERROR: Default value {} was not parsed' +
+                     '\nERROR: {}').format(param_default, line))
                 sys.exit()
         # For multi-value lists, convert values to int/float
         elif len(param_default) >= 2:
@@ -290,15 +286,15 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
                 param_default = map(float, param_default)
             else:
                 logging.error(
-                    ('\nERROR: Default value {0} was not parsed' +
-                     '\nERROR: {1}').format(param_default, line))
+                    ('\nERROR: Default value {} was not parsed' +
+                     '\nERROR: {}').format(param_default, line))
                 sys.exit()
 
         # Check that dimension names are valid
         for dimen_name in dimen_names:
             if dimen_name not in dimen_size_dict.keys():
                 logging.error(
-                    ('\nERROR: The dimension {0} is not set in the ' +
+                    ('\nERROR: The dimension {} is not set in the ' +
                      'dimension CSV file').format(dimen_name))
                 sys.exit()
         # Calculate number of dimensions
@@ -336,7 +332,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
                 param_values_dict[param_name][i] = param_default[i]
         else:
             logging.error(
-                ('\nERROR: The default value(s) ({0}) could not be ' +
+                ('\nERROR: The default value(s) ({}) could not be ' +
                  'broadcast to the dimension length ({1})').format(
                      param_default, param_values_count))
             sys.exit()
@@ -376,7 +372,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     with arcpy.da.SearchCursor(hru.polygon_path, value_fields) as s_cursor:
         param_values_dict['basin_area'][0] = sum(
             [float(row[2]) for row in s_cursor if int(row[1]) >= 1])
-    logging.info('  basin_area = {0} acres'.format(
+    logging.info('  basin_area = {} acres'.format(
         param_values_dict['basin_area'][0]))
 
     # Calculate number of columns
@@ -391,7 +387,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     with arcpy.da.SearchCursor(hru.polygon_path, value_fields) as s_cursor:
         param_values_dict['ncol'][0] = len(
             list(set([int(row[1]) for row in s_cursor])))
-    logging.info('  ncol = {0}'.format(
+    logging.info('  ncol = {}'.format(
         param_values_dict['ncol'][0]))
 
     # Calculate mean monthly maximum temperature for all active cells
@@ -403,21 +399,21 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     param_dimen_names_dict['tmax_index'] = ['nmonths']
     param_values_count_dict['tmax_index'] = dimen_size_dict['nmonths']
     param_type_dict['tmax_index'] = 2
-    tmax_field_list = ['TMAX_{0:02d}'.format(m) for m in range(1, 13)]
+    tmax_field_list = ['TMAX_{:02d}'.format(m) for m in range(1, 13)]
     for i, tmax_field in enumerate(tmax_field_list):
         tmax_values = [row[1] for row in arcpy.da.SearchCursor(
             hru.polygon_path, (hru.type_field, tmax_field),
-            where_clause='"{0}" >= 1'.format(hru.type_field))]
+            where_clause='"{}" >= 1'.format(hru.type_field))]
         tmax_c = sum(tmax_values) / len(tmax_values)
         tmax_f = 1.8 * tmax_c + 32
         param_values_dict['tmax_index'][i] = tmax_f
-        logging.info('  {0} = {1}'.format(
+        logging.info('  {} = {}'.format(
             tmax_field, param_values_dict['tmax_index'][i]))
         del tmax_values
 
     #
     logging.info('\nCalculating rain_adj/snow_adj')
-    ratio_field_list = ['PPT_RT_{0:02d}'.format(m) for m in range(1, 13)]
+    ratio_field_list = ['PPT_RT_{:02d}'.format(m) for m in range(1, 13)]
     param_name_dict['rain_adj'] = 'rain_adj'
     param_width_dict['rain_adj'] = 4
     param_dimen_count_dict['rain_adj'] = 2
@@ -465,10 +461,10 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
             continue
         # Read in parameters
         cell = (int(row[5]), int(row[6]))
-        # next_row_col(FLOW_DIR, CELL)
+        # support.next_row_col(FLOW_DIR, CELL)
         # HRU_ID, SUBBASIN, NEXT_CELL
         cell_dict[cell] = [
-            int(row[7]), int(row[3]), next_row_col(int(row[4]), cell)]
+            int(row[7]), int(row[3]), support.next_row_col(int(row[4]), cell)]
         del cell
 
     # Get subset of cells if subbasin != next_subbasin
@@ -490,7 +486,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
             subbasin_list.append([subbasin, cell_dict[next_cell][1]])
     for i, (subbasin, subbasin_down) in enumerate(sorted(subbasin_list)):
         param_values_dict['subbasin_down'][i] = subbasin_down
-        logging.debug('  {0}'.format(
+        logging.debug('  {}'.format(
             param_values_dict['subbasin_down'][i]))
     del subbasin_list
 
@@ -510,7 +506,7 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     #        hru.polygon_path, (hru.type_field, hru.id_field))
     #    if int(row[0]) == 2]
     # for i,lake_hru_id in enumerate(sorted(lake_hru_id_list)):
-    #    # logging.debug('  {0} {1}'.format(i, lake_hru_id))
+    #    # logging.debug('  {} {}'.format(i, lake_hru_id))
     #    param_values_dict['lake_hru'][i] = lake_hru_id
 
 
@@ -632,8 +628,8 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
     # param_values_count_dict['gw_down_id'] = dimen_size_dict['ncascdgw']
     # param_values_count_dict['gw_strmseg_down_id'] = dimen_size_dict['ncascdgw']
     # param_values_count_dict['gw_pct_up'] = dimen_size_dict['ncascdgw']
-    # logging.info('  ncascade = {0}'.format(dimen_size_dict['ncascade']))
-    # logging.info('  ncascdgw = {0}'.format(dimen_size_dict['ncascdgw']))
+    # logging.info('  ncascade = {}'.format(dimen_size_dict['ncascade']))
+    # logging.info('  ncascdgw = {}'.format(dimen_size_dict['ncascdgw']))
     # raw_input('ENTER')
 
 
@@ -668,10 +664,10 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
         for dimen_name, dimen_size in sorted(dimen_size_dict.items()):
             if not dimen_size:
                 continue
-            logging.debug('    {0}'.format(dimen_name))
-            output_f.write(break_str+'\n')
-            output_f.write(dimen_name+'\n')
-            output_f.write(str(dimen_size)+'\n')
+            logging.debug('    {}'.format(dimen_name))
+            output_f.write(break_str + '\n')
+            output_f.write(dimen_name + '\n')
+            output_f.write(str(dimen_size) + '\n')
             # DEADBEEF - It seems bad to remove items during iteration
             del dimen_size_dict[dimen_name]
             # remove_list.append(dimen_name)
@@ -679,10 +675,10 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
         # Then write unset dimensions
         logging.info('  Unset dimensions')
         for dimen_name in sorted(dimen_size_dict.keys()):
-            logging.debug('  {0}'.format(dimen_name))
-            output_f.write(break_str+'\n')
-            output_f.write(dimen_name+'\n')
-            output_f.write(str(dimen_size_dict[dimen_name])+'\n')
+            logging.debug('  {}'.format(dimen_name))
+            output_f.write(break_str + '\n')
+            output_f.write(dimen_name + '\n')
+            output_f.write(str(dimen_size_dict[dimen_name]) + '\n')
 
         # Parameters
         output_f.write(param_header_str + '\n')
@@ -691,11 +687,11 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
         for param_name in sorted(param_name_dict.keys()):
             if param_name in param_values_dict.keys():
                 continue
-            logging.debug('    {0}'.format(param_name))
-            output_f.write(break_str+'\n')
-            output_f.write('{0} {1}\n'.format(
+            logging.debug('    {}'.format(param_name))
+            output_f.write(break_str + '\n')
+            output_f.write('{} {}\n'.format(
                 param_name, param_width_dict[param_name]))
-            output_f.write('{0}\n'.format(param_dimen_count_dict[param_name]))
+            output_f.write('{}\n'.format(param_dimen_count_dict[param_name]))
             for dimen_name in param_dimen_names_dict[param_name]:
                 output_f.write(dimen_name + '\n')
             output_f.write(str(param_values_count_dict[param_name]) + '\n')
@@ -713,11 +709,11 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
         # Then write set parameters
         logging.info('  Set parameters')
         for param_name in sorted(param_name_dict.keys()):
-            logging.debug('  {0}'.format(param_name))
-            output_f.write(break_str+'\n')
-            output_f.write('{0} {1}\n'.format(
+            logging.debug('  {}'.format(param_name))
+            output_f.write(break_str + '\n')
+            output_f.write('{} {1}\n'.format(
                 param_name, param_width_dict[param_name]))
-            output_f.write('{0}\n'.format(param_dimen_count_dict[param_name]))
+            output_f.write('{}\n'.format(param_dimen_count_dict[param_name]))
             for dimen_name in param_dimen_names_dict[param_name]:
                 output_f.write(dimen_name + '\n')
             output_f.write(str(param_values_count_dict[param_name]) + '\n')
@@ -725,13 +721,13 @@ def prms_template_fill(config_path, overwrite_flag=False, debug_flag=False):
             output_f.write(str(param_type) + '\n')
             for i, param_value in param_values_dict[param_name].items():
                 if param_type == 1:
-                    output_f.write('{0:d}'.format(param_value) + '\n')
+                    output_f.write('{:d}'.format(param_value) + '\n')
                 elif param_type == 2:
-                    output_f.write('{0:f}'.format(param_value) + '\n')
+                    output_f.write('{:f}'.format(param_value) + '\n')
                 elif param_type == 3:
-                    output_f.write('{0:f}'.format(param_value) + '\n')
+                    output_f.write('{:f}'.format(param_value) + '\n')
                 elif param_type == 4:
-                    output_f.write('{0}'.format(param_value) + '\n')
+                    output_f.write('{}'.format(param_value) + '\n')
     # Close file
     output_f.close()
 
@@ -790,7 +786,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -804,9 +800,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 
