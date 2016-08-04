@@ -217,11 +217,11 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
         support.add_field_func(hru.polygon_path, hru.dem_count_field, 'DOUBLE')
     support.add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
     support.add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
-    support.add_field_func(hru.polygon_path, hru.elev_field, 'DOUBLE')
-    support.add_field_func(hru.polygon_path, hru.aspect_field, 'LONG')
-    support.add_field_func(hru.polygon_path, hru.slope_deg_field, 'DOUBLE')
-    support.add_field_func(hru.polygon_path, hru.slope_rad_field, 'DOUBLE')
-    support.add_field_func(hru.polygon_path, hru.slope_pct_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_aspect_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.dem_slope_deg_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_slope_rad_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_slope_pct_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_feet_field, 'DOUBLE')
     # add_field_func(hru.polygon_path, hru.deplcrv_field, 'DOUBLE')
     support.add_field_func(hru.polygon_path, hru.jh_tmin_field, 'DOUBLE')
     support.add_field_func(hru.polygon_path, hru.jh_tmax_field, 'DOUBLE')
@@ -368,10 +368,8 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # zs_dem_dict[hru.dem_median_field] = [dem_integer_path, 'MEDIAN']
     zs_dem_dict[hru.dem_max_field] = [dem_path, 'MAXIMUM']
     zs_dem_dict[hru.dem_min_field] = [dem_path, 'MINIMUM']
-    # zs_dem_dict[hru.elev_field]   = [dem_integer_path, 'MEDIAN']
-    # zs_dem_dict[hru.aspect_field] = [dem_aspect_path, 'MINIMUM']
-    zs_dem_dict[hru.aspect_field] = [dem_aspect_reclass_path, 'MAJORITY']
-    zs_dem_dict[hru.slope_deg_field] = [dem_slope_path, 'MEAN']
+    zs_dem_dict[hru.dem_aspect_field] = [dem_aspect_reclass_path, 'MAJORITY']
+    zs_dem_dict[hru.dem_slope_deg_field] = [dem_slope_path, 'MEAN']
     zs_dem_dict[hru.tmax_adj_field] = [temp_adj_path, 'MEAN']
     zs_dem_dict[hru.tmin_adj_field] = [temp_adj_path, 'MEAN']
 
@@ -390,16 +388,16 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Calculate HRU_ELEV (HRU elevation in feet)
     logging.info('\nCalculating initial {} from {}'.format(
-        hru.elev_field, hru.dem_mean_field))
+        hru.dem_feet_field, hru.dem_adj_field))
     if linear_unit in ['METERS']:
         logging.info('  Converting from meters to feet')
         arcpy.CalculateField_management(
-            hru.polygon_path, hru.elev_field,
-            '!{}! * 3.28084'.format(hru.dem_mean_field), 'PYTHON')
+            hru.polygon_path, hru.dem_feet_field,
+            '!{}! * 3.28084'.format(hru.dem_adj_field), 'PYTHON')
     elif linear_unit in ['FOOT_US', 'FOOT']:
         arcpy.CalculateField_management(
-            hru.polygon_path, hru.elev_field,
-            '!{}!'.format(hru.dem_mean_field), 'PYTHON')
+            hru.polygon_path, hru.dem_feet_field,
+            '!{}!'.format(hru.dem_adj_field), 'PYTHON')
 
 
     # Flow accumulation weighted elevation
@@ -447,16 +445,16 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # HRU_SLOPE in radians
     logging.info('Calculating {} (Slope in Radians)'.format(
-        hru.slope_rad_field))
+        hru.dem_slope_rad_field))
     arcpy.CalculateField_management(
-        hru.polygon_path, hru.slope_rad_field,
-        'math.pi * !{}! / 180'.format(hru.slope_deg_field), 'PYTHON')
+        hru.polygon_path, hru.dem_slope_rad_field,
+        'math.pi * !{}! / 180'.format(hru.dem_slope_deg_field), 'PYTHON')
     # HRU_SLOPE in percent
     logging.info('Calculating {} (Percent Slope)'.format(
-        hru.slope_pct_field))
+        hru.dem_slope_pct_field))
     arcpy.CalculateField_management(
-        hru.polygon_path, hru.slope_pct_field,
-        'math.tan(!{}!)'.format(hru.slope_rad_field), 'PYTHON')
+        hru.polygon_path, hru.dem_slope_pct_field,
+        'math.tan(!{}!)'.format(hru.dem_slope_rad_field), 'PYTHON')
 
     # HRU_DEPLCRV
     # deplcrv is set to 1 for all active cells when writing parameter file
@@ -493,16 +491,16 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
         arcpy.CalculateField_management(
             hru.polygon_path, hru.jh_tmin_field, 7, 'PYTHON')
     support.jensen_haise_func(
-        hru.polygon_path, hru.jh_coef_field, hru.elev_field,
+        hru.polygon_path, hru.jh_coef_field, hru.dem_feet_field,
         hru.jh_tmin_field, hru.jh_tmax_field)
 
     # SNAREA_THRESH
     logging.info('Calculating {}'.format(hru.snarea_thresh_field))
     elev_min = support.field_stat_func(
-        hru.polygon_path, hru.elev_field, 'MINIMUM')
+        hru.polygon_path, hru.dem_feet_field, 'MINIMUM')
     arcpy.CalculateField_management(
         hru.polygon_path, hru.snarea_thresh_field,
-        '(!{}! - {}) * 0.005'.format(hru.elev_field, elev_min),
+        '(!{}! - {}) * 0.005'.format(hru.dem_feet_field, elev_min),
         'PYTHON')
 
     # Clear slope/aspect values for lake cells (HRU_TYPE == 2)
@@ -517,13 +515,13 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
             '"{0}" = 2 OR ("{0}" = 0 AND "{1}" = 0)'.format(
                 hru.type_field, hru.dem_adj_field))
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.aspect_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_aspect_field, 0, 'PYTHON')
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.slope_deg_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_slope_deg_field, 0, 'PYTHON')
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.slope_rad_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_slope_rad_field, 0, 'PYTHON')
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.slope_pct_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_slope_pct_field, 0, 'PYTHON')
         # arcpy.CalculateField_management(
         #    hru_polygon_layer, hru.deplcrv_field, 0, 'PYTHON')
         # arcpy.CalculateField_management(

@@ -175,7 +175,7 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     support.add_field_func(hru.polygon_path, hru.maxreach_field, 'LONG')
     support.add_field_func(hru.polygon_path, hru.outseg_field, 'LONG')
     support.add_field_func(hru.polygon_path, hru.irunbound_field, 'LONG')
-    support.add_field_func(hru.polygon_path, hru.crt_dem_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.crt_elev_field, 'DOUBLE')
     support.add_field_func(hru.polygon_path, hru.crt_fill_field, 'DOUBLE')
 
     # Calculate KRCH, IRCH, JRCH for stream segments
@@ -462,8 +462,10 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
         sys.exit()
     logging.info('  Break indices: {}, {}, {}'.format(
         crt_dem_i, crt_fill_i, crt_type_i))
-    crt_dem_data = [r.split() for r in output_data[crt_dem_i+1:crt_fill_i-1]]
-    crt_fill_data = [r.split() for r in output_data[crt_fill_i+1:crt_type_i-1]]
+    crt_dem_data = [
+        r.split() for r in output_data[crt_dem_i+1: crt_fill_i-1]]
+    crt_fill_data = [
+        r.split() for r in output_data[crt_fill_i+1: crt_type_i-1]]
     logging.info('  ROWS/COLS: {}/{}'.format(
         len(crt_dem_data), len(crt_dem_data[0])))
     logging.info('  ROWS/COLS: {}/{}'.format(
@@ -472,17 +474,18 @@ def crt_fill_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Build dictionaries of the CRT data
     crt_dem_dict = defaultdict(dict)
     crt_fill_dict = defaultdict(dict)
-    for i,r in enumerate(crt_dem_data):
-        crt_dem_dict[i+1] = dict(
-            [(j+1, c) for j, c in enumerate(crt_dem_data[i])])
-    for i,r in enumerate(crt_fill_data):
-        crt_fill_dict[i+1] = dict(
-            [(j+1, c) for j, c in enumerate(crt_fill_data[i])])
+    for i, r in enumerate(crt_dem_data):
+        crt_dem_dict[i + 1] = dict(
+            [(j + 1, c) for j, c in enumerate(crt_dem_data[i])])
+    for i, r in enumerate(crt_fill_data):
+        crt_fill_dict[i + 1] = dict(
+            [(j + 1, c) for j, c in enumerate(crt_fill_data[i])])
 
     # Write CRT values to hru_polygon
     logging.info("Writing CRT data to fishnet")
     logging.debug('  {:<4s} {:<4s} {:>7s}'.format('ROW', 'COLD', 'FILL'))
-    fields = [hru.row_field, hru.col_field, hru.crt_dem_field, hru.crt_fill_field]
+    fields = [
+        hru.row_field, hru.col_field, hru.crt_elev_field, hru.crt_fill_field]
     with arcpy.da.UpdateCursor(hru.polygon_path, fields) as update_c:
         for row in update_c:
             row[2] = crt_dem_dict[int(row[0])][int(row[1])]

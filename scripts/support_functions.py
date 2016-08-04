@@ -131,16 +131,17 @@ class HRUParameters():
             hru_desc = arcpy.Describe(self.polygon_path)
             self.sr = hru_desc.spatialReference
             self.extent = round_extent(hru_desc.extent, 6)
-            logging.info('  Fishnet extent:     {}'.format(extent_string(self.extent)))
+            logging.info('  Fishnet extent:     {}'.format(
+                extent_string(self.extent)))
             logging.debug('  Fishnet spat. ref.: {}'.format(self.sr.name))
             logging.debug('  Fishnet GCS:        {}'.format(self.sr.GCS.name))
 
             # Check that the fishnet is snapped to the reference point
             if not snapped(self.extent, self.ref_pnt, self.cs):
                 logging.error(
-                    ('\nWARNING: {} does not appear to be snapped to the INI ' +
-                     'file reference point\n  This may be a rounding issue.').format(
-                        os.path.basename(self.polygon_path)))
+                    ('\nWARNING: {} does not appear to be snapped to the ' +
+                     'INI file reference point\n  This may be a rounding ' +
+                     'issue.').format(os.path.basename(self.polygon_path)))
                 raw_input('Press ENTER to continue')
 
             # DEADBEEF - I'm not sure why I would adjust the extent
@@ -153,7 +154,8 @@ class HRUParameters():
 
         # Some fields are dependent on the control flags
         set_lake_flag = inputs_cfg.getboolean('INPUTS', 'set_lake_flag')
-        calc_flow_acc_dem_flag = inputs_cfg.getboolean('INPUTS', 'calc_flow_acc_dem_flag')
+        calc_flow_acc_dem_flag = inputs_cfg.getboolean(
+            'INPUTS', 'calc_flow_acc_dem_flag')
         calc_topo_index_flag = inputs_cfg.getboolean('INPUTS', 'calc_topo_index_flag')
         clip_root_depth_flag = inputs_cfg.getboolean('INPUTS', 'clip_root_depth_flag')
         # set_ppt_zones_flag = inputs_cfg.getboolean('INPUTS', 'set_ppt_zones_flag')
@@ -181,14 +183,14 @@ class HRUParameters():
             self.dem_flowacc_field = 'DEM_FLOW_AC'
         self.dem_sink8_field = fields_cfg.get('FIELDS', 'dem_sink8_field')
         self.dem_sink4_field = fields_cfg.get('FIELDS', 'dem_sink4_field')
-        self.crt_dem_field  = fields_cfg.get('FIELDS', 'crt_dem_field')
+        self.crt_elev_field = fields_cfg.get('FIELDS', 'crt_elev_field')
         self.crt_fill_field = fields_cfg.get('FIELDS', 'crt_fill_field')
+        self.dem_feet_field = fields_cfg.get('FIELDS', 'dem_feet_field')
+        self.dem_aspect_field = fields_cfg.get('FIELDS', 'dem_aspect_field')
+        self.dem_slope_deg_field = fields_cfg.get('FIELDS', 'dem_slope_deg_field')
+        self.dem_slope_rad_field = fields_cfg.get('FIELDS', 'dem_slope_rad_field')
+        self.dem_slope_pct_field = fields_cfg.get('FIELDS', 'dem_slope_pct_field')
         self.area_field = fields_cfg.get('FIELDS', 'area_field')
-        self.elev_field = fields_cfg.get('FIELDS', 'elev_field')
-        self.aspect_field = fields_cfg.get('FIELDS', 'aspect_field')
-        self.slope_deg_field = fields_cfg.get('FIELDS', 'slope_deg_field')
-        self.slope_rad_field = fields_cfg.get('FIELDS', 'slope_rad_field')
-        self.slope_pct_field = fields_cfg.get('FIELDS', 'slope_pct_field')
         self.topo_index_field = fields_cfg.get('FIELDS', 'topo_index_field')
         self.row_field = fields_cfg.get('FIELDS', 'row_field')
         self.col_field = fields_cfg.get('FIELDS', 'col_field')
@@ -1151,7 +1153,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
     arcpy.Delete_management(zone_int_layer)
 
 
-def jensen_haise_func(hru_param_path, jh_coef_field, hru_elev_field,
+def jensen_haise_func(hru_param_path, jh_coef_field, dem_feet_field,
                       jh_tmin_field, jh_tmax_field):
     """"""
     jh_cb = (
@@ -1162,7 +1164,7 @@ def jensen_haise_func(hru_param_path, jh_coef_field, hru_elev_field,
     arcpy.CalculateField_management(
         hru_param_path, jh_coef_field,
         'jensen_haise(!{}!, !{}!, !{}!)'.format(
-            hru_elev_field, jh_tmin_field, jh_tmax_field),
+            dem_feet_field, jh_tmin_field, jh_tmax_field),
         'PYTHON', jh_cb)
 
 
@@ -1233,15 +1235,6 @@ def remap_check(remap_path):
                 else:
                     remap_f.write(line)
     return True
-
-
-#  Remap aspect
-# logging.info('\nRemapping Aspect to HRU_ASPECT')
-# arcpy.CalculateField_management(
-#    polygon_path, hru_aspect_field,
-#    'Reclass(!{}!)'.format(dem_aspect_field),
-#    'PYTHON', remap_code_block(aspect_remap_path))
-# # arcpy.DeleteField_management(polygon_path, dem_aspect_field)
 
 
 def remap_code_block(remap_path):
