@@ -3,24 +3,21 @@
 # Purpose:      GSFLOW vegetation parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
 import argparse
-# from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
 import os
-# import re
 import sys
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
 
-from support_functions import *
+import support_functions as support
 
 
 def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
@@ -36,7 +33,7 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = HRUParameters(config_path)
+    hru = support.support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -45,7 +42,7 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
 
     # Log DEBUG to file
@@ -84,7 +81,7 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist'.format(
+            '\nERROR: Fishnet ({}) does not exist'.format(
                 hru.polygon_path))
         sys.exit()
     # Check that either the original vegetation raster exist
@@ -103,12 +100,12 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
         veg_type_field = 'VALUE'
     elif len(arcpy.ListFields(veg_type_orig_path, veg_type_field)) == 0:
         logging.info(
-            ('  veg_type_field {0} does not exist\n  Using VALUE ' +
+            ('  veg_type_field {} does not exist\n  Using VALUE ' +
              'field to set vegetation type').format(veg_type_field))
         veg_type_field = 'VALUE'
     elif arcpy.ListFields(veg_type_orig_path, veg_type_field)[0].type not in ['Integer', 'SmallInteger']:
         logging.info(
-            ('  veg_type_field {0} is not an integer type\n  Using VALUE ' +
+            ('  veg_type_field {} is not an integer type\n  Using VALUE ' +
              'field to set vegetation type').format(veg_type_field))
         veg_type_field = 'VALUE'
 
@@ -130,7 +127,7 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
         snow_intcp_remap_path, srain_intcp_remap_path,
         wrain_intcp_remap_path, root_depth_remap_path]
     for remap_path in remap_path_list:
-        remap_check(remap_path)
+        support.remap_check(remap_path)
 
     # DEADBEEF
     # if not os.path.isfile(cov_type_remap_path):
@@ -189,25 +186,25 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Check fields
     logging.info('\nAdding vegetation fields if necessary')
-    add_field_func(hru.polygon_path, hru.cov_type_field, 'SHORT')
-    add_field_func(hru.polygon_path, hru.covden_sum_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.covden_win_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.rad_trncf_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.snow_intcp_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.srain_intcp_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.wrain_intcp_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.root_depth_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.cov_type_field, 'SHORT')
+    support.add_field_func(hru.polygon_path, hru.covden_sum_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.covden_win_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.rad_trncf_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.snow_intcp_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.srain_intcp_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.wrain_intcp_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.root_depth_field, 'DOUBLE')
 
 
     # Check that remaps have all necessary values
     logging.info('\nChecking remap tables against all raster cells')
     logging.info('  (i.e. even those outside the study area)')
-    remap_check_func(cov_type_remap_path, veg_type_orig_path)
-    remap_check_func(covden_sum_remap_path, veg_cover_orig_path)
-    remap_check_func(snow_intcp_remap_path, veg_type_orig_path)
-    remap_check_func(srain_intcp_remap_path, veg_type_orig_path)
-    remap_check_func(wrain_intcp_remap_path, veg_type_orig_path)
-    remap_check_func(root_depth_remap_path, veg_type_orig_path)
+    support.remap_check_func(cov_type_remap_path, veg_type_orig_path)
+    support.remap_check_func(covden_sum_remap_path, veg_cover_orig_path)
+    support.remap_check_func(snow_intcp_remap_path, veg_type_orig_path)
+    support.remap_check_func(srain_intcp_remap_path, veg_type_orig_path)
+    support.remap_check_func(wrain_intcp_remap_path, veg_type_orig_path)
+    support.remap_check_func(root_depth_remap_path, veg_type_orig_path)
 
 
     # Assume all vegetation rasters will need to be rebuilt
@@ -216,60 +213,60 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Project/clip veg cover to match HRU
     logging.info('\nProjecting/clipping vegetation cover raster')
-    veg_cover_orig_sr = Raster(veg_cover_orig_path).spatialReference
+    veg_cover_orig_sr = arcpy.sa.Raster(veg_cover_orig_path).spatialReference
     # Remove existing clipped/projected veg cover raster
     if arcpy.Exists(veg_cover_path):
         arcpy.Delete_management(veg_cover_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, veg_cover_orig_sr)
-    logging.debug('  Transform:{0}'.format(transform_str))
+    transform_str = support.transform_func(hru.sr, veg_cover_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
     logging.debug('  Projection method: NEAREST')
 
     # Project veg cover
     # DEADBEEF - Arc10.2 ProjectRaster does not extent
-    project_raster_func(
+    support.project_raster_func(
         veg_cover_orig_path, veg_cover_path, hru.sr,
         'NEAREST', veg_cover_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y), veg_cover_orig_sr, hru)
+        '{} {}'.format(hru.ref_x, hru.ref_y), veg_cover_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    veg_cover_orig_path, veg_cover_path, hru.sr,
     #    'NEAREST', veg_cover_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    veg_cover_orig_sr)
     # arcpy.ClearEnvironment('extent')
     del transform_str, veg_cover_orig_sr
 
     # Project/clip veg type to match HRU
     logging.info('Projecting/clipping vegetation type raster')
-    veg_type_orig_sr = Raster(veg_type_orig_path).spatialReference
+    veg_type_orig_sr = arcpy.sa.Raster(veg_type_orig_path).spatialReference
     # Remove existing clipped/projected veg type raster
     if arcpy.Exists(veg_type_path):
         arcpy.Delete_management(veg_type_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, veg_type_orig_sr)
-    logging.debug('  Transform: {0}'.format(transform_str))
+    transform_str = support.transform_func(hru.sr, veg_type_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
     logging.debug('  Projection method: NEAREST')
     # Use a different field to calculate vegetation type
     if veg_type_field != 'VALUE':
         logging.info(
-            '  Calculating vegetation type from {0} field'.format(
+            '  Calculating vegetation type from {} field'.format(
                 veg_type_field))
-        veg_type_obj = Lookup(veg_type_orig_path, veg_type_field)
+        veg_type_obj = arcpy.sa.Lookup(veg_type_orig_path, veg_type_field)
     else:
-        veg_type_obj = Raster(veg_type_orig_path)
+        veg_type_obj = arcpy.sa.Raster(veg_type_orig_path)
 
     # Project veg type
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
-    project_raster_func(
+    support.project_raster_func(
         veg_type_obj, veg_type_path, hru.sr,
         'NEAREST', veg_type_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y), veg_type_orig_sr, hru)
+        '{} {}'.format(hru.ref_x, hru.ref_y), veg_type_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    veg_type_obj, veg_type_path, hru.sr,
     #    'NEAREST', veg_type_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    veg_type_orig_sr)
     # arcpy.ClearEnvironment('extent')
     del transform_str, veg_type_orig_sr, veg_type_obj
@@ -277,16 +274,16 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Reclassifying vegetation cover type
     logging.info('\nCalculating COV_TYPE')
-    logging.debug('  Reclassifying: {0}'.format(cov_type_remap_path))
-    cov_type_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(cov_type_remap_path))
+    cov_type_obj = arcpy.sa.ReclassByASCIIFile(
         veg_type_path, cov_type_remap_path)
     cov_type_obj.save(cov_type_path)
     del cov_type_obj
 
     # Summer cover density
     logging.info('Calculating COVDEN_SUM')
-    logging.debug('  Reclassifying: {0}'.format(covden_sum_remap_path))
-    covden_sum_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(covden_sum_remap_path))
+    covden_sum_obj = arcpy.sa.ReclassByASCIIFile(
         veg_cover_path, covden_sum_remap_path)
     covden_sum_obj *= 0.01
     covden_sum_obj.save(covden_sum_path)
@@ -294,49 +291,49 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Winter cover density
     logging.info('Calculating COVDEN_WIN')
-    logging.debug('  Reclassifying: {0}'.format(covden_win_remap_path))
-    covden_win_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(covden_win_remap_path))
+    covden_win_obj = arcpy.sa.ReclassByASCIIFile(
         cov_type_path, covden_win_remap_path)
     covden_win_obj *= 0.01
-    covden_win_obj *= Raster(covden_sum_path)
+    covden_win_obj *=arcpy.sa.Raster(covden_sum_path)
     covden_win_obj.save(covden_win_path)
     del covden_win_obj
 
     # Snow interception storage capacity
     logging.info('Calculating SNOW_INTCP')
-    logging.debug('  Reclassifying: {0}'.format(snow_intcp_remap_path))
-    snow_intcp_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(snow_intcp_remap_path))
+    snow_intcp_obj = arcpy.sa.ReclassByASCIIFile(
         veg_type_path, snow_intcp_remap_path)
     snow_intcp_obj.save(snow_intcp_path)
     del snow_intcp_obj
 
     # Winter rain interception storage capacity
     logging.info('Calculating WRAIN_INTCP')
-    logging.debug('  Reclassifying: {0}'.format(wrain_intcp_remap_path))
-    wrain_intcp_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(wrain_intcp_remap_path))
+    wrain_intcp_obj = arcpy.sa.ReclassByASCIIFile(
         veg_type_path, wrain_intcp_remap_path)
     wrain_intcp_obj.save(wrain_intcp_path)
     del wrain_intcp_obj
 
     # Summer rain interception storage capacity
     logging.info('Calculating SRAIN_INTCP')
-    logging.debug('  Reclassifying: {0}'.format(srain_intcp_remap_path))
-    srain_intcp_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(srain_intcp_remap_path))
+    srain_intcp_obj = arcpy.sa.ReclassByASCIIFile(
         veg_type_path, srain_intcp_remap_path)
     srain_intcp_obj.save(srain_intcp_path)
     del srain_intcp_obj
 
     # Root depth
     logging.info('Calculating ROOT_DEPTH')
-    logging.debug('  Reclassifying: {0}'.format(root_depth_remap_path))
-    root_depth_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(root_depth_remap_path))
+    root_depth_obj = arcpy.sa.ReclassByASCIIFile(
         veg_type_path, root_depth_remap_path)
     root_depth_obj.save(root_depth_path)
     del root_depth_obj
 
     # Short-wave radiation transmission coefficent
-    logging.info('Calculating {0}'.format(hru.rad_trncf_field))
-    rad_trncf_obj = 0.9917 * Exp(-2.7557 * Raster(covden_win_path))
+    logging.info('Calculating {}'.format(hru.rad_trncf_field))
+    rad_trncf_obj = 0.9917 * Exp(-2.7557 * arcpy.sa.Raster(covden_win_path))
     rad_trncf_obj.save(rad_trncf_path)
     del rad_trncf_obj
 
@@ -355,14 +352,15 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Calculate zonal statistics
     logging.info('\nCalculating vegetation zonal statistics')
-    zonal_stats_func(zs_veg_dict, hru.polygon_path, hru.point_path, hru)
+    support.zonal_stats_func(
+        zs_veg_dict, hru.polygon_path, hru.point_path, hru)
 
 
     # Short-wave radiation transmission coefficient
-    # logging.info('\nCalculating {0}'.format(hru.rad_trncf_field))
+    # logging.info('\nCalculating {}'.format(hru.rad_trncf_field))
     # arcpy.CalculateField_management(
     #    hru.polygon_path, hru.rad_trncf_field,
-    #    '0.9917 * math.exp(-2.7557 * !{0}!)'.format(hru.covden_win_field),
+    #    '0.9917 * math.exp(-2.7557 * !{}!)'.format(hru.covden_win_field),
     #    'PYTHON')
 
 
@@ -406,19 +404,21 @@ def get_remap_keys(remap_path):
 
 def get_raster_values(raster_path):
     """"""
-    return [int(row[0]) for row in arcpy.da.SearchCursor(raster_path, ['Value'])]
+    return [
+        int(row[0])
+        for row in arcpy.da.SearchCursor(raster_path, ['Value'])]
 
 
 def remap_check_func(remap_path, raster_path):
     """"""
-    logging.info('  {0} - {1}'.format(
+    logging.info('  {} - {}'.format(
         os.path.basename(remap_path), os.path.basename(raster_path)))
     remap_keys = get_remap_keys(remap_path)
     raster_values = get_raster_values(raster_path)
     missing_keys = sorted(list(set(raster_values) - set(remap_keys)))
     for key in missing_keys:
         logging.warning(
-            '    Raster value {0} is not in the remap table'.format(key))
+            '    Raster value {} is not in the remap table'.format(key))
 
 
 def arg_parse():
@@ -433,7 +433,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -447,9 +447,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

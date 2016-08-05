@@ -3,27 +3,21 @@
 # Purpose:      GSFLOW PPT ratio parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
 import argparse
-# from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
-# import multiprocessing
 import os
-# import re
 import sys
-# from time import clock
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
-# import numpy as np
 
-import support_functions
+import support_functions as support
 
 
 def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
@@ -39,7 +33,7 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = support_functions.HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -48,7 +42,7 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
 
     # Log DEBUG to file
@@ -61,15 +55,15 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('\nGSFLOW PPT Ratio Parameters')
 
     # Units
-    ppt_obs_units = support_functions.get_param(
+    ppt_obs_units = support.get_param(
         'ppt_obs_units', 'mm', inputs_cfg).lower()
     ppt_units_list = ['mm', 'cm', 'm', 'in', 'ft']
     # Compare against the upper case of the values in the list
     #   but don't modify the acceptable units list
     if ppt_obs_units not in ppt_units_list:
         logging.warning(
-            ('WARNING: Invalid PPT obs. units ({0})\n  ' +
-             'Valid units are: {1}').format(
+            ('WARNING: Invalid PPT obs. units ({})\n  ' +
+             'Valid units are: {}').format(
                 ppt_obs_units, ', '.join(ppt_units_list)))
 
     # PPT Zones
@@ -101,22 +95,22 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
             sys.exit()
 
         # Check that HRU_ID is valid
-        logging.info('  PPT HRU_ID: {0}'.format(ppt_hru_id))
+        logging.info('  PPT HRU_ID: {}'.format(ppt_hru_id))
         arcpy.MakeTableView_management(
             hru.polygon_path, "test_layer",
-            "{0} = {1}".format(hru.id_field, ppt_hru_id))
+            "{} = {}".format(hru.id_field, ppt_hru_id))
         if ppt_hru_id == 0:
             logging.info(
                 '    Assuming ppt_ratios should not be forced to 1 at a cell')
         elif int(arcpy.GetCount_management("test_layer").getOutput(0)) == 0:
             logging.error(
-                ('\nERROR: ppt_hru_id {0} is not a valid cell hru_id' +
+                ('\nERROR: ppt_hru_id {} is not a valid cell hru_id' +
                  '\nERROR: ppt_ratios will not be forced to 1' +
-                 ' at cell {0}\n').format(ppt_hru_id))
+                 ' at cell {}\n').format(ppt_hru_id))
             ppt_hru_id = 0
         arcpy.Delete_management("test_layer")
         logging.info(
-            ('  Observed Mean Monthly PPT ({0}):\n    {1}\n    (Script ' +
+            ('  Observed Mean Monthly PPT ({}):\n    {}\n    (Script ' +
              'will assume these are listed in month order, i.e. Jan, ' +
              'Feb, ...)').format(ppt_obs_units, ppt_obs_list))
 
@@ -134,19 +128,19 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
         if factor != 1:
             ppt_obs_list = [p * factor for p in ppt_obs_list]
             logging.info(
-                '\n  Converted Mean Monthly PPT ({0}):\n    {1}'.format(
+                '\n  Converted Mean Monthly PPT ({}):\n    {}'.format(
                     ppt_obs_units, ppt_obs_list))
 
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist'.format(
+            '\nERROR: Fishnet ({}) does not exist'.format(
                 hru.polygon_path))
         sys.exit()
     if set_ppt_zones_flag:
         if not arcpy.Exists(ppt_zone_orig_path):
             logging.error(
-                '\nERROR: PPT Zone ({0}) does not exist'.format(
+                '\nERROR: PPT Zone ({}) does not exist'.format(
                     ppt_zone_orig_path))
             sys.exit()
         # ppt_zone_path must be a polygon shapefile
@@ -158,11 +152,11 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
         if ppt_zone_field.upper() in ['', 'FID', 'NONE']:
             ppt_zone_field = arcpy.Describe(ppt_zone_orig_path).OIDFieldName
             logging.warning(
-                '\n  NOTE: Using {0} to set {1}\n'.format(
+                '\n  NOTE: Using {} to set {}\n'.format(
                     ppt_zone_field, hru.ppt_zone_id_field))
         elif not arcpy.ListFields(ppt_zone_orig_path, ppt_zone_field):
             logging.error(
-                '\nERROR: ppt_zone_field field {0} does not exist\n'.format(
+                '\nERROR: ppt_zone_field field {} does not exist\n'.format(
                     ppt_zone_field))
             sys.exit()
         # Need to check that ppt_zone_field is an int type
@@ -170,11 +164,12 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
                   if (f.name == ppt_zone_field and
                       f.type in ['SmallInteger', 'Integer'])]:
             logging.error(
-                '\nERROR: ppt_zone_field field {0} must be an integer type\n'.format(
+                '\nERROR: ppt_zone_field field {} must be an integer type\n'.format(
                     ppt_zone_field))
             sys.exit()
         # Need to check that ppt_zone_field is all positive values
-        elif min([row[0] for row in arcpy.da.SearchCursor(ppt_zone_orig_path, [ppt_zone_field])]) <= 0:
+        elif min([row[0] for row in arcpy.da.SearchCursor(
+                ppt_zone_orig_path, [ppt_zone_field])]) <= 0:
             logging.error(
                 '\nERROR: ppt_zone_field values must be positive\n'.format(
                     ppt_zone_field))
@@ -197,33 +192,33 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
     env.scratchWorkspace = hru.scratch_ws
 
     # Set month list based on flags
-    month_list = ['{0:02d}'.format(m) for m in range(1, 13)]
-    ppt_field_list = ['PPT_{0}'.format(m) for m in month_list]
-    ratio_field_list = ['PPT_RT_{0}'.format(m) for m in month_list]
+    month_list = ['{:02d}'.format(m) for m in range(1, 13)]
+    ppt_field_list = ['PPT_{}'.format(m) for m in month_list]
+    ratio_field_list = ['PPT_RT_{}'.format(m) for m in month_list]
     # month_list.extend(['14'])
 
     # Check fields
     logging.info('\nAdding PRISM fields if necessary')
     # PPT zone fields
-    support_functions.add_field_func(
+    support.add_field_func(
         hru.polygon_path, hru.ppt_zone_id_field, 'LONG')
     # PPT ratio fields
     for ppt_field in ppt_field_list:
-        support_functions.add_field_func(hru.polygon_path, ppt_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, ppt_field, 'DOUBLE')
 
     # Calculate PPT zone ID
     if set_ppt_zones_flag:
         logging.info('\nCalculating cell HRU PPT zone ID')
         ppt_zone_desc = arcpy.Describe(ppt_zone_orig_path)
         ppt_zone_sr = ppt_zone_desc.spatialReference
-        logging.debug('  PPT zones: {0}'.format(ppt_zone_orig_path))
-        logging.debug('  PPT zones spat. ref.:  {0}'.format(
+        logging.debug('  PPT zones: {}'.format(ppt_zone_orig_path))
+        logging.debug('  PPT zones spat. ref.:  {}'.format(
             ppt_zone_sr.name))
-        logging.debug('  PPT zones GCS:         {0}'.format(
+        logging.debug('  PPT zones GCS:         {}'.format(
             ppt_zone_sr.GCS.name))
         # Reset PPT_ZONE_ID
         if set_ppt_zones_flag:
-            logging.info('  Resetting {0} to 0'.format(hru.ppt_zone_id_field))
+            logging.info('  Resetting {} to 0'.format(hru.ppt_zone_id_field))
             arcpy.CalculateField_management(
                 hru.polygon_path, hru.ppt_zone_id_field, 0, 'PYTHON')
         # If ppt_zone spat_ref doesn't match hru_param spat_ref
@@ -232,9 +227,9 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
         if hru.sr.name != ppt_zone_sr.name:
             logging.info('  Projecting PPT zones...')
             # Set preferred transforms
-            transform_str = support_functions.transform_func(
+            transform_str = support.transform_func(
                 hru.sr, ppt_zone_sr)
-            logging.debug('    Transform: {0}'.format(transform_str))
+            logging.debug('    Transform: {}'.format(transform_str))
             # Project ppt_zone shapefile
             arcpy.Project_management(
                 ppt_zone_orig_path, ppt_zone_path, hru.sr,
@@ -251,11 +246,11 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
                 except:
                     pass
         # Set ppt zone ID
-        logging.info('  Setting {0}'.format(hru.ppt_zone_id_field))
-        support_functions.zone_by_centroid_func(
+        logging.info('  Setting {}'.format(hru.ppt_zone_id_field))
+        support.zone_by_centroid_func(
             ppt_zone_path, hru.ppt_zone_id_field, ppt_zone_field,
             hru.polygon_path, hru.point_path, hru)
-        # zone_by_area_func(
+        # support.zone_by_area_func(
         #    ppt_zone_layer, hru.ppt_zone_id_field, ppt_zone_field,
         #    hru.polygon_path, hru, hru_area_field, None, 50)
         # Cleanup
@@ -293,8 +288,8 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
         with arcpy.da.UpdateCursor(hru.polygon_path, fields) as u_cursor:
             for row in u_cursor:
                 for i, month in enumerate(month_list):
-                    ppt_i = fields.index('PPT_{0}'.format(month))
-                    ratio_i = fields.index('PPT_RT_{0}'.format(month))
+                    ppt_i = fields.index('PPT_{}'.format(month))
+                    ratio_i = fields.index('PPT_RT_{}'.format(month))
                     # If ppt_zone_id was not in zone data, set to 0
                     if row[-1] in ppt_obs_dict.keys():
                         row[ratio_i] = row[ppt_i] / ppt_obs_dict[row[-1]][i]
@@ -306,22 +301,22 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
     else:
         # Get PRISM precip at PPT_HRU_ID
         fields = [hru.id_field] + ppt_field_list
-        logging.debug('  Fields: {0}'.format(', '.join(fields)))
+        logging.debug('  Fields: {}'.format(', '.join(fields)))
 
         # Scale all ratios so PRISM will match observed at a target cell
         if ppt_hru_id != 0:
             ppt_prism_list = map(float, arcpy.da.SearchCursor(
                 hru.polygon_path, fields,
-                '"{0}" = {1}'.format(hru.id_field, ppt_hru_id)).next()[1:])
-            logging.info('  PRISM PPT: {0}'.format(
-                ', '.join(['{0:.2f}'.format(p) for p in ppt_prism_list])))
+                '"{}" = {}'.format(hru.id_field, ppt_hru_id)).next()[1:])
+            logging.info('  PRISM PPT: {}'.format(
+                ', '.join(['{:.2f}'.format(p) for p in ppt_prism_list])))
             # Ratio of MEASURED/OBSERVED PPT to PRISM PPT
             # This will be multiplied by PRISM/OBSERVED below
             ppt_ratio_list = [
                 float(o) / p if p > 0 else 0
                 for o, p in zip(ppt_obs_list, ppt_prism_list)]
-            logging.info('  Obs./PRISM: {0}'.format(
-                ', '.join(['{0:.3f}'.format(p) for p in ppt_ratio_list])))
+            logging.info('  Obs./PRISM: {}'.format(
+                ', '.join(['{:.3f}'.format(p) for p in ppt_ratio_list])))
         else:
             ppt_ratio_list = [1 for p in ppt_obs_list]
 
@@ -331,8 +326,8 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
         with arcpy.da.UpdateCursor(hru.polygon_path, fields) as u_cursor:
             for row in u_cursor:
                 for i, month in enumerate(month_list):
-                    ppt_i = fields.index('PPT_{0}'.format(month))
-                    ratio_i = fields.index('PPT_RT_{0}'.format(month))
+                    ppt_i = fields.index('PPT_{}'.format(month))
+                    ratio_i = fields.index('PPT_RT_{}'.format(month))
                     if ppt_obs_list[i] > 0:
                         row[ratio_i] = (
                             ppt_ratio_list[i] * row[ppt_i] / ppt_obs_list[i])
@@ -352,7 +347,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -366,9 +361,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

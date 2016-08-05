@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW parameter support functions
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
@@ -23,9 +23,6 @@ import numpy as np
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
-
-from support_functions import *
 
 
 class HRUParameters():
@@ -37,16 +34,17 @@ class HRUParameters():
             inputs_cfg.readfp(open(config_path))
         except IOError:
             logging.error(('\nERROR: Config file does not exist\n' +
-                           '  {0}\n').format(field_list_path))
+                           '  {}\n').format(config_path))
             sys.exit()
         except ConfigParser.MissingSectionHeaderError:
-            logging.error('\nERROR: Config file is missing a section header\n' +
-                          '    Please make sure the following line is at the ' +
-                          'beginning of the file\n[INPUTS]\n')
+            logging.error(
+                '\nERROR: Config file is missing a section header\n' +
+                '    Please make sure the following line is at the ' +
+                'beginning of the file\n[INPUTS]\n')
             sys.exit()
         except:
             logging.error(('\nERROR: Config file could not be read\n' +
-                           '  {0}\n').format(config_path))
+                           '  {}\n').format(config_path))
         logging.debug('\nReading Input File')
         logging.debug('  {}'.format(os.path.basename(config_path)))
 
@@ -61,25 +59,26 @@ class HRUParameters():
             fields_cfg.readfp(open(field_list_path))
         except IOError:
             logging.error(('\nERROR: Field list file does not exist\n' +
-                           '  {0}\n').format(field_list_path))
+                           '  {}\n').format(field_list_path))
             sys.exit()
         except ConfigParser.MissingSectionHeaderError:
-            logging.error('\nERROR: Field list file is missing a section header\n' +
-                          '    Please make sure the following line is at the ' +
-                          'beginning of the file\n[FIELDS]\n')
+            logging.error(
+                '\nERROR: Field list file is missing a section header\n' +
+                '    Please make sure the following line is at the ' +
+                'beginning of the file\n[FIELDS]\n')
             sys.exit()
         except:
             logging.error(('\nERROR: Field list file could not be read\n' +
-                           '  {0}\n').format(field_list_path))
+                           '  {}\n').format(field_list_path))
         logging.debug('\nReading Field List File')
 
         # Read parameters from config file
         self.polygon_path = inputs_cfg.get('INPUTS', 'hru_fishnet_path')
-        self.point_path   = inputs_cfg.get('INPUTS', 'hru_centroid_path')
+        self.point_path = inputs_cfg.get('INPUTS', 'hru_centroid_path')
         self.sr_name = inputs_cfg.get('INPUTS', 'hru_projection')
-        self.cs      = inputs_cfg.getfloat('INPUTS', 'hru_cellsize')
-        self.ref_x   = inputs_cfg.getfloat('INPUTS', 'hru_ref_x')
-        self.ref_y   = inputs_cfg.getfloat('INPUTS', 'hru_ref_y')
+        self.cs = inputs_cfg.getfloat('INPUTS', 'hru_cellsize')
+        self.ref_x = inputs_cfg.getfloat('INPUTS', 'hru_ref_x')
+        self.ref_y = inputs_cfg.getfloat('INPUTS', 'hru_ref_y')
         self.ref_pnt = arcpy.Point(self.ref_x, self.ref_y)
         # self.ref_x   = inputs_cfg.getint('INPUTS', 'hru_ref_x')
         # self.ref_y   = inputs_cfg.getint('INPUTS', 'hru_ref_y')
@@ -120,10 +119,10 @@ class HRUParameters():
             self.scratch_ws = scratch_ws
 
         # Log input hru parameters
-        logging.info('  Fishnet cellsize:   {0}'.format(self.cs))
-        logging.info('  Fishnet ref. point: {0} {1}'.format(
+        logging.info('  Fishnet cellsize:   {}'.format(self.cs))
+        logging.info('  Fishnet ref. point: {} {}'.format(
             self.ref_x, self.ref_y))
-        logging.debug('  Fishnet Buffer Cells: {0}'.format(self.buffer_cells))
+        logging.debug('  Fishnet Buffer Cells: {}'.format(self.buffer_cells))
         # snap_pnt = arcpy.Point(self.ref_x, self.ref_y)
         # snap_pnt.X, snap_pnt.Y = self.ref_x, self.ref_y
 
@@ -132,16 +131,17 @@ class HRUParameters():
             hru_desc = arcpy.Describe(self.polygon_path)
             self.sr = hru_desc.spatialReference
             self.extent = round_extent(hru_desc.extent, 6)
-            logging.info('  Fishnet extent:     {0}'.format(extent_string(self.extent)))
-            logging.debug('  Fishnet spat. ref.: {0}'.format(self.sr.name))
-            logging.debug('  Fishnet GCS:        {0}'.format(self.sr.GCS.name))
+            logging.info('  Fishnet extent:     {}'.format(
+                extent_string(self.extent)))
+            logging.debug('  Fishnet spat. ref.: {}'.format(self.sr.name))
+            logging.debug('  Fishnet GCS:        {}'.format(self.sr.GCS.name))
 
             # Check that the fishnet is snapped to the reference point
             if not snapped(self.extent, self.ref_pnt, self.cs):
                 logging.error(
-                    ('\nWARNING: {0} does not appear to be snapped to the INI ' +
-                     'file reference point\n  This may be a rounding issue.').format(
-                        os.path.basename(self.polygon_path)))
+                    ('\nWARNING: {} does not appear to be snapped to the ' +
+                     'INI file reference point\n  This may be a rounding ' +
+                     'issue.').format(os.path.basename(self.polygon_path)))
                 raw_input('Press ENTER to continue')
 
             # DEADBEEF - I'm not sure why I would adjust the extent
@@ -154,7 +154,8 @@ class HRUParameters():
 
         # Some fields are dependent on the control flags
         set_lake_flag = inputs_cfg.getboolean('INPUTS', 'set_lake_flag')
-        calc_flow_acc_dem_flag = inputs_cfg.getboolean('INPUTS', 'calc_flow_acc_dem_flag')
+        calc_flow_acc_dem_flag = inputs_cfg.getboolean(
+            'INPUTS', 'calc_flow_acc_dem_flag')
         calc_topo_index_flag = inputs_cfg.getboolean('INPUTS', 'calc_topo_index_flag')
         clip_root_depth_flag = inputs_cfg.getboolean('INPUTS', 'clip_root_depth_flag')
         # set_ppt_zones_flag = inputs_cfg.getboolean('INPUTS', 'set_ppt_zones_flag')
@@ -182,14 +183,14 @@ class HRUParameters():
             self.dem_flowacc_field = 'DEM_FLOW_AC'
         self.dem_sink8_field = fields_cfg.get('FIELDS', 'dem_sink8_field')
         self.dem_sink4_field = fields_cfg.get('FIELDS', 'dem_sink4_field')
-        self.crt_dem_field  = fields_cfg.get('FIELDS', 'crt_dem_field')
+        self.crt_elev_field = fields_cfg.get('FIELDS', 'crt_elev_field')
         self.crt_fill_field = fields_cfg.get('FIELDS', 'crt_fill_field')
+        self.dem_feet_field = fields_cfg.get('FIELDS', 'dem_feet_field')
+        self.dem_aspect_field = fields_cfg.get('FIELDS', 'dem_aspect_field')
+        self.dem_slope_deg_field = fields_cfg.get('FIELDS', 'dem_slope_deg_field')
+        self.dem_slope_rad_field = fields_cfg.get('FIELDS', 'dem_slope_rad_field')
+        self.dem_slope_pct_field = fields_cfg.get('FIELDS', 'dem_slope_pct_field')
         self.area_field = fields_cfg.get('FIELDS', 'area_field')
-        self.elev_field = fields_cfg.get('FIELDS', 'elev_field')
-        self.aspect_field = fields_cfg.get('FIELDS', 'aspect_field')
-        self.slope_deg_field = fields_cfg.get('FIELDS', 'slope_deg_field')
-        self.slope_rad_field = fields_cfg.get('FIELDS', 'slope_rad_field')
-        self.slope_pct_field = fields_cfg.get('FIELDS', 'slope_pct_field')
         self.topo_index_field = fields_cfg.get('FIELDS', 'topo_index_field')
         self.row_field = fields_cfg.get('FIELDS', 'row_field')
         self.col_field = fields_cfg.get('FIELDS', 'col_field')
@@ -309,13 +310,13 @@ def field_stat_func(input_path, value_field, stat='MAXIMUM'):
     elif stat.upper() in ['MINIMUM', 'MIN']:
         return min(value_list)
     else:
-        return float(sum(value_list)) / count(value_list)
+        return float(sum(value_list)) / len(value_list)
 
 
 def add_field_func(hru_param_path, field_name, field_type='DOUBLE'):
     """"""
     while not arcpy.ListFields(hru_param_path, field_name):
-        logging.info('  Field: {0}'.format(field_name))
+        logging.info('  Field: {}'.format(field_name))
         try:
             arcpy.AddField_management(
                 hru_param_path, field_name, field_type)
@@ -344,37 +345,37 @@ def valid_raster_func(raster_path, raster_name, hru_param, cs=10):
     """
     if not arcpy.Exists(raster_path):
         return False
-    logging.debug('\nReading existing {0} raster'.format(raster_name))
-    raster_obj = Raster(raster_path)
+    logging.debug('\nReading existing {} raster'.format(raster_name))
+    raster_obj = arcpy.sa.Raster(raster_path)
     raster_sr = raster_obj.spatialReference
     raster_extent = raster_obj.extent
     raster_cs = raster_obj.meanCellWidth
-    logging.debug('  {0} spat. ref.: {1}'.format(
+    logging.debug('  {} spat. ref.: {}'.format(
         raster_name, raster_sr.name))
-    logging.debug('  {0} GCS:        {1}'.format(
+    logging.debug('  {} GCS:        {}'.format(
         raster_name, raster_sr.GCS.name))
-    logging.debug('  {0} extent:     {1}'.format(
+    logging.debug('  {} extent:     {}'.format(
         raster_name, extent_string(raster_extent)))
-    logging.debug('  {0} cellsize:   {1}'.format(raster_name, raster_cs))
+    logging.debug('  {} cellsize:   {}'.format(raster_name, raster_cs))
     ref_pnt = arcpy.Point(hru_param.ref_x, hru_param.ref_y)
     if raster_sr.name != hru_param.sr.name:
         logging.error(
-            ('\nERROR: The {0} spatial reference does not match ' +
+            ('\nERROR: The {} spatial reference does not match ' +
              'the hru_param spatial reference').format(raster_name))
         return False
     elif not snapped(raster_extent, ref_pnt, hru_param.cs):
         logging.error(
-            '\nWARNING: The {0} is not snapped to the hru_param'.format(
+            '\nWARNING: The {} is not snapped to the hru_param'.format(
                 raster_name))
         return False
     elif raster_cs != cs:
         logging.error(
-            '\nERROR: The {0} needs to have a {1}m cellsize'.format(
+            '\nERROR: The {} needs to have a {}m cellsize'.format(
                 raster_name, cs))
         return False
     elif not raster_extent.contains(hru_param.extent):
         logging.error(
-            '\nERROR: The {0} extent is too small'.format(raster_name))
+            '\nERROR: The {} extent is too small'.format(raster_name))
         return False
     else:
         return True
@@ -384,8 +385,8 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
                      nodata_value=-999, default_value=0):
     """"""
     for zs_field, (raster_path, zs_stat) in sorted(zs_dict.items()):
-        logging.info('  {0}: {1}'.format(zs_field, zs_stat))
-        logging.info('    {0}'.format(raster_path))
+        logging.info('  {}: {}'.format(zs_field, zs_stat))
+        logging.info('    {}'.format(raster_path))
         # Check inputs
         zs_stat_list = ['MEAN', 'MINIMUM', 'MAXIMUM', 'MEDIAN', 'MAJORITY', 'SUM']
         zs_field_list = arcpy.ListFields(polygon_path, zs_field)
@@ -393,7 +394,7 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
             sys.exit()
         elif len(zs_field_list) == 0:
             logging.error(
-                '\nERROR: Zonal stats field {0} doesn\'t exist'.format(zs_field))
+                '\nERROR: Zonal stats field {} doesn\'t exist'.format(zs_field))
             sys.exit()
 
     # Check that the shapefiles have a spatial reference
@@ -403,7 +404,8 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
         sys.exit()
     if arcpy.Describe(point_path).spatialReference.name == 'Unknown':
         logging.error(
-            '\nERROR: HRU centroids does not appear to be projected (or does not have a prj file)' +
+            '\nERROR: HRU centroids does not appear to be projected ' +
+            '(or does not have a prj file)' +
             '\nERROR: Try deleting the centroids (i.e. "_label.shp") and ' +
             'rerunning hru_parameters.py\n')
         sys.exit()
@@ -411,7 +413,7 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
     # Check that ORIG_FID is in point_path (HRU centroids)
     if len(arcpy.ListFields(point_path, hru_param.fid_field)) == 0:
         logging.error(
-            ('\nERROR: HRU centroids does not have the field: {0}' +
+            ('\nERROR: HRU centroids does not have the field: {}' +
              '\nERROR: Try deleting the centroids (i.e. "_label.shp") and ' +
              'rerunning hru_parameters.py\n').format(hru_param.fid_field))
         sys.exit()
@@ -420,13 +422,13 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
     hru_param_count = int(arcpy.GetCount_management(point_path).getOutput(0))
     if field_duplicate_check(point_path, hru_param.fid_field, hru_param_count):
         logging.error(
-            ('\nERROR: There are duplicate {0} values\n').format(hru_param.fid_field))
+            ('\nERROR: There are duplicate {} values\n').format(hru_param.fid_field))
         sys.exit()
     # DEADBEEF - remove once field_duplicate_check() is full developed
     # fid_list = [r[0] for r in arcpy.da.SearchCursor(point_path, [hru_param.fid_field])]
     # if len(fid_list) != len(set(fid_list)):
     #    logging.error(
-    #        ('\nERROR: There are duplicate {0} values\n').format(hru_param.fid_field))
+    #        ('\nERROR: There are duplicate {} values\n').format(hru_param.fid_field))
     #    sys.exit()
 
     # Create memory objects
@@ -442,7 +444,7 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
     # Only ~65536 objects can be processed by zonal stats
     block_size = 65000
     for i, x in enumerate(xrange(0, hru_param_count, block_size)):
-        logging.info('  FIDS: {0}-{1}'.format(x, x + block_size))
+        logging.info('  FIDS: {}-{}'.format(x, x + block_size))
         # Select a subset of the cell centroids
         logging.debug('    Selecting FID subset')
         subset_str = '"{0}" >= {1} AND "{0}" < {2}'.format(
@@ -459,14 +461,14 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
         logging.debug('    Calculating zonal stats')
         data_dict = defaultdict(dict)
         for zs_field, (raster_path, zs_stat) in sorted(zs_dict.items()):
-            zs_name = '{0}_{1}'.format(zs_field.upper(), i)
-            logging.info('    {0}: {1}'.format(zs_stat.upper(), zs_name))
+            zs_name = '{}_{}'.format(zs_field.upper(), i)
+            logging.info('    {}: {}'.format(zs_stat.upper(), zs_name))
             # For some reason with 10.2, ZS doesn't work with cs at HRU cs
-            env.cellSize = Raster(raster_path).meanCellWidth
+            env.cellSize = arcpy.sa.Raster(raster_path).meanCellWidth
             # Calculate zonal statistics
             zs_table = os.path.join('in_memory', zs_name)
             # zs_table = os.path.join(env.scratchWorkspace, zs_name+'.dbf')
-            zs_obj = ZonalStatisticsAsTable(
+            zs_obj = arcpy.sa.ZonalStatisticsAsTable(
                 hru_raster_path, 'Value', raster_path,
                 zs_table, 'DATA', zs_stat.upper())
 
@@ -569,7 +571,7 @@ def field_duplicate_check(table_path, field_name, n=None):
         block_size = 500000
         fid_ranges = []
         for i, x in enumerate(xrange(0, n, block_size)):
-            logging.debug('    FIDS: {0}-{1}'.format(x, x + block_size))
+            logging.debug('    FIDS: {}-{}'.format(x, x + block_size))
             subset_str = '"{0}" >= {1} AND "{0}" < {2}'.format(
                 arcpy.Describe(table_path).OIDFieldName, x, x + block_size)
 
@@ -638,7 +640,7 @@ def group_ranges(input_list):
     Yields
          tuple: pairs (min, max)
     """
-    for k, g in itertools.groupby(enumerate(sorted(input_list)), lambda (i, x):i-x):
+    for k, g in itertools.groupby(enumerate(sorted(input_list)), lambda (i, x): i-x):
         group = map(itemgetter(1), g)
         yield group[0], group[-1]
 
@@ -787,7 +789,7 @@ def get_ini_file(workspace, ini_re, function_str='function'):
         # If none, error out
         print('\nThere is more than one INI file present in the folder')
         print('  {0:2s}  {1}'.format('# ', 'INI File'))
-        print('  {0:2s}  {1}'.format('==', '='*ini_file_len_max))
+        print('  {0:2s}  {1}'.format('==', '=' * ini_file_len_max))
         for i, ini_file in enumerate(ini_file_list):
             print('  {0:2d}  {1}'.format(i, ini_file))
         config_filepath = None
@@ -798,11 +800,11 @@ def get_ini_file(workspace, ini_re, function_str='function'):
                 config_filepath = ini_file_list[ini_file_index]
             except (ValueError, IndexError):
                 pass
-        print('  Using {0}\n'.format(config_filepath))
+        print('  Using {}\n'.format(config_filepath))
         del ini_file_len_max, usr_input
     else:
         print('\nERROR: No suitable ini files were found')
-        print('ERROR: Please set input file when calling {0}'.format(function_str))
+        print('ERROR: Please set input file when calling {}'.format(function_str))
         print('ERROR: For example: test.py test.ini\n')
         sys.exit()
     config_filename = os.path.basename(config_filepath)
@@ -830,13 +832,13 @@ def get_param(param_str, param_default, config, section='INPUTS'):
             if param_value.upper() == 'NONE':
                 param_value = None
         else:
-            logging.error('ERROR: Unknown Input Type: {0}'.format(param_type))
+            logging.error('ERROR: Unknown Input Type: {}'.format(param_type))
             sys.exit()
     except:
         param_value = param_default
         if param_type is str and param_value.upper() == 'NONE':
             param_value = None
-        logging.warning('  NOTE: {0} = {1}'.format(param_str, param_value))
+        logging.warning('  NOTE: {} = {}'.format(param_str, param_value))
     return param_value
 
 
@@ -874,7 +876,7 @@ def get_prism_data_name():
             data_name = data_name_dict[data_name_index]
         except (ValueError, IndexError):
             pass
-    print '  Using {0}\n'.format(data_name)
+    print '  Using {}\n'.format(data_name)
     return data_name
 
 
@@ -882,12 +884,12 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
                             target_extent, target_cs, target_sr):
     """"""
     logging.debug('  Projecting extent')
-    logging.debug('  HRU Extent:   {0}'.format(extent_string(hru_extent)))
-    logging.debug('  HRU cellsize: {0}'.format(hru_cs))
-    logging.debug('  HRU spatref:  {0}'.format(hru_sr.name))
-    logging.debug('  Target snap:     {0}'.format(target_extent.lowerLeft))
-    logging.debug('  Target cellsize: {0}'.format(target_cs))
-    logging.debug('  Target spatref:  {0}'.format(target_sr.name))
+    logging.debug('  HRU Extent:   {}'.format(extent_string(hru_extent)))
+    logging.debug('  HRU cellsize: {}'.format(hru_cs))
+    logging.debug('  HRU spatref:  {}'.format(hru_sr.name))
+    logging.debug('  Target snap:     {}'.format(target_extent.lowerLeft))
+    logging.debug('  Target cellsize: {}'.format(target_cs))
+    logging.debug('  Target spatref:  {}'.format(target_sr.name))
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
     # Project the HRU extent to the raster spatial reference
     hru_corners = [
@@ -914,19 +916,19 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
     else:
         projected_extent = arcpy.Polygon(
             arcpy.Array(hru_points), hru_sr).projectAs(target_sr).extent
-    logging.debug('  Projected Extent:\n  {0}'.format(
+    logging.debug('  Projected Extent:\n  {}'.format(
         extent_string(projected_extent)))
     # Adjust extent to match snap
     projected_extent = adjust_extent_to_snap(
         projected_extent, target_extent.lowerLeft, target_cs, 'EXPAND', False)
-    logging.debug('  Snapped Extent:\n  {0}'.format(
+    logging.debug('  Snapped Extent:\n  {}'.format(
         extent_string(projected_extent)))
     # Buffer extent 4 input cells
     projected_extent = buffer_extent_func(projected_extent, 4 * target_cs)
     # This will cause problems when target cellsize is in decimal degrees
     # projected_extent = buffer_extent_func(
     #     projected_extent, 4 * max(target_cs, hru_cs))
-    logging.debug('  Buffered Extent::\n  {0}'.format(
+    logging.debug('  Buffered Extent::\n  {}'.format(
         extent_string(projected_extent)))
     return projected_extent
 
@@ -938,13 +940,13 @@ def project_raster_func(input_raster, output_raster, output_sr,
     # Input raster can be a raster object or a raster path
     # print isinstance(input_raster, Raster), isinstance(input_raster, str)
     try:
-        input_extent = Raster(input_raster).extent
+        input_extent = arcpy.sa.Raster(input_raster).extent
     except:
         input_extent = input_raster.extent
-    # This is the "actual" input cellsize 
+    # This is the "actual" input cellsize
     #   and is needed to get the snapping
     # This could be passed as an input to the function
-    input_cs = Raster(input_raster).meanCellWidth
+    input_cs = arcpy.sa.Raster(input_raster).meanCellWidth
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
     # Clip the input raster with the projected HRU extent first
     # Project extent from "output" to "input" to get clipping extent
@@ -983,7 +985,7 @@ def zone_by_area_func(zone_path, zone_field, zone_value, hru_param_path,
         zone_field (str):
         zone_value (int):
         hru_param_path (str):
-        hru_param: class:`support_functions.HRUParameters`
+        hru_param: class:`HRUParameters`
         hru_area_field (str):
         zone_area_field (str):
         area_pct ():
@@ -1002,7 +1004,7 @@ def zone_by_area_func(zone_path, zone_field, zone_value, hru_param_path,
     if zone_value == arcpy.Describe(zone_path).OIDFieldName:
         arcpy.CalculateField_management(
             zone_path, zone_value_field,
-            '!{0}! + 1'.format(zone_value), 'PYTHON')
+            '!{}! + 1'.format(zone_value), 'PYTHON')
 
     # If zone value is an INT, save it into a field first
     elif type(zone_value) is int:
@@ -1014,7 +1016,7 @@ def zone_by_area_func(zone_path, zone_field, zone_value, hru_param_path,
         # zone_value_field = zone_value
         arcpy.CalculateField_management(
             zone_path, zone_value_field,
-            '!{0}!'.format(zone_value), 'PYTHON')
+            '!{}!'.format(zone_value), 'PYTHON')
 
     # Calculate area of HRU cell if necessary
     # if not arcpy.ListFields(zone_path, area_field):
@@ -1033,7 +1035,7 @@ def zone_by_area_func(zone_path, zone_field, zone_value, hru_param_path,
     n = int(arcpy.GetCount_management(zone_int_path).getOutput(0))
     block_size = 200000
     for i, x in enumerate(range(0, n, block_size)):
-        logging.debug('    FIDS: {0}-{1}'.format(x, x + block_size))
+        logging.debug('    FIDS: {}-{}'.format(x, x + block_size))
         subset_str = '"{0}" >= {1} AND "{0}" < {2}'.format(
             hru_param.fid_field, x, x + block_size)
             # arcpy.Describe(zone_int_path).OIDFieldName, x, x + block_size)
@@ -1078,7 +1080,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
         zone_value (int):
         hru_param_path (str):
         hru_point_path (str):
-        hru_param: class:`support_functions.HRUParameters`
+        hru_param: class:`HRUParameters`
 
     Returns:
         None
@@ -1092,7 +1094,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
     if zone_value == arcpy.Describe(zone_path).OIDFieldName:
         arcpy.CalculateField_management(
             zone_path, zone_value_field,
-            '!{0}! + 1'.format(zone_value), 'PYTHON')
+            '!{}! + 1'.format(zone_value), 'PYTHON')
     # Save zone value into a field first
     elif type(zone_value) is int:
         arcpy.CalculateField_management(
@@ -1103,7 +1105,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
     else:
         arcpy.CalculateField_management(
             zone_path, zone_value_field,
-            '!{0}!'.format(zone_value), 'PYTHON')
+            '!{}!'.format(zone_value), 'PYTHON')
         # DEADBEEF
         # Use zone_value field directly
         # zone_value_field = zone_value
@@ -1123,7 +1125,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
     n = int(arcpy.GetCount_management(zone_int_layer).getOutput(0))
     block_size = 200000
     for i, x in enumerate(range(0, n, block_size)):
-        logging.debug('    FIDS: {0}-{1}'.format(x, x + block_size))
+        logging.debug('    FIDS: {}-{}'.format(x, x + block_size))
         subset_str = '"{0}" >= {1} AND "{0}" < {2}'.format(
             hru_param.fid_field, x, x + block_size)
             # arcpy.Describe(zone_int_layer).OIDFieldName, x, x + block_size)
@@ -1151,7 +1153,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
     arcpy.Delete_management(zone_int_layer)
 
 
-def jensen_haise_func(hru_param_path, jh_coef_field, hru_elev_field,
+def jensen_haise_func(hru_param_path, jh_coef_field, dem_feet_field,
                       jh_tmin_field, jh_tmax_field):
     """"""
     jh_cb = (
@@ -1161,8 +1163,8 @@ def jensen_haise_func(hru_param_path, jh_coef_field, hru_elev_field,
         '    return 27.5 - 0.25 * (ea(t_high) - ea(t_low)) - (elev / 1000)\n')
     arcpy.CalculateField_management(
         hru_param_path, jh_coef_field,
-        'jensen_haise(!{0}!, !{1}!, !{2}!)'.format(
-            hru_elev_field, jh_tmin_field, jh_tmax_field),
+        'jensen_haise(!{}!, !{}!, !{}!)'.format(
+            dem_feet_field, jh_tmin_field, jh_tmax_field),
         'PYTHON', jh_cb)
 
 
@@ -1171,7 +1173,7 @@ def remap_check(remap_path):
     # Check that the file exists
     if not os.path.isfile(remap_path):
         logging.error(
-            '\nERROR: ASCII remap file ({0}) does not exist\n'.format(
+            '\nERROR: ASCII remap file ({}) does not exist\n'.format(
                 os.path.basename(remap_path)))
         sys.exit()
 
@@ -1193,7 +1195,7 @@ def remap_check(remap_path):
     if arcpy.GetInstallInfo()['Version'].startswith('10.2'):
         if any([l for l in remap_lines if '/*' in l]):
             logging.error(
-                    ('\nERROR: ASCII remap file ({0}) has pre-ArcGIS 10.2 ' +
+                    ('\nERROR: ASCII remap file ({}) has pre-ArcGIS 10.2 ' +
                      'comments (\*)\n  Try running the "convert_remap_arc10p2.py"' +
                      'script\n').format(os.path.basename(remap_path)))
             sys.exit()
@@ -1222,7 +1224,7 @@ def remap_check(remap_path):
     # If lines were removed, resave the filtered remap file
     if save_flag:
         logging.warning(
-            '  The ASCII remap file ({0}) will be overwritten'.format(
+            '  The ASCII remap file ({}) will be overwritten'.format(
                 os.path.basename(remap_path)))
         with open(remap_path, 'w') as remap_f:
             for i, line in enumerate(remap_lines):
@@ -1233,15 +1235,6 @@ def remap_check(remap_path):
                 else:
                     remap_f.write(line)
     return True
-
-
-#  Remap aspect
-# logging.info('\nRemapping Aspect to HRU_ASPECT')
-# arcpy.CalculateField_management(
-#    polygon_path, hru_aspect_field,
-#    'Reclass(!{0}!)'.format(dem_aspect_field),
-#    'PYTHON', remap_code_block(aspect_remap_path))
-# # arcpy.DeleteField_management(polygon_path, dem_aspect_field)
 
 
 def remap_code_block(remap_path):
@@ -1269,18 +1262,18 @@ def remap_code_block(remap_path):
         # Write remap code block
         if not range_remap_flag:
             if not remap_cb:
-                remap_cb = ('    if value == {0}: ' +
-                            'return {1}\n'.format(*l_split))
+                remap_cb = ('    if value == {}: ' +
+                            'return {}\n'.format(*l_split))
             else:
-                remap_cb += ('    elif value == {0}: ' +
-                             'return {1}\n'.format(*l_split))
+                remap_cb += ('    elif value == {}: ' +
+                             'return {}\n'.format(*l_split))
         else:
             if not remap_cb:
-                remap_cb = ('    if (value >= {0} and value <= {1}): ' +
-                            'return {2}\n').format(*l_split)
+                remap_cb = ('    if (value >= {} and value <= {}): ' +
+                            'return {}\n').format(*l_split)
             else:
-                remap_cb += ('    elif (value > {0} and value <= {1}): ' +
-                             'return {2}\n').format(*l_split)
+                remap_cb += ('    elif (value > {} and value <= {}): ' +
+                             'return {}\n').format(*l_split)
     remap_cb = 'def Reclass(value):\n' + remap_cb
     return remap_cb
 
@@ -1290,7 +1283,7 @@ def remap_code_block(remap_path):
 #    with open(remap_path) as remap_f: lines = remap_f.readlines()
 #    remap_f.close()
 #    first_line = True
-#    raster_obj = Raster(raster_path)
+#    raster_obj = arcpy.sa.Raster(raster_path)
 #    for l in lines:
 #        # Skip comment lines
 #        if '#' in l: continue
@@ -1330,7 +1323,9 @@ def is_number(s):
 
 def raster_path_to_array(input_path, mask_extent=None, return_nodata=False):
     """"""
-    return raster_obj_to_array(Raster(input_path), mask_extent, return_nodata)
+    return raster_obj_to_array(
+        arcpy.sa.Raster(input_path), mask_extent, return_nodata)
+
 
 def raster_obj_to_array(input_obj, mask_extent=None, return_nodata=False):
     """"""
@@ -1374,7 +1369,8 @@ def array_to_raster(input_array, output_path, pnt, cs, mask_array=None):
         output_array = output_array.astype(np.uint8)
         output_nodata = 255
     # If a mask array is give, assume all 0 values are nodata
-    if np.any(mask_array): output_array[mask_array == 0] = output_nodata
+    if np.any(mask_array):
+        output_array[mask_array == 0] = output_nodata
     output_obj = arcpy.NumPyArrayToRaster(
         output_array, pnt, cs, cs, output_nodata)
     output_obj.save(output_path)
@@ -1389,7 +1385,7 @@ def flood_fill(test_array, four_way_flag=True, edge_flt=None):
     input_array = np.copy(test_array)
     input_rows, input_cols = input_array.shape
     h_max = np.nanmax(input_array * 2.0)
-    logging.debug("  Hmax: %s" % (h_max/2.0))
+    logging.debug("  Hmax: %s" % (h_max / 2.0))
 
     # Since ArcGIS doesn't ship with SciPy (only numpy), don't use ndimage module
     if four_way_flag:
@@ -1414,13 +1410,13 @@ def flood_fill(test_array, four_way_flag=True, edge_flt=None):
     output_array[inside_mask] = h_max
     # Set edge pixels less than edge_flt to edge_flt
     if edge_flt:
-        output_array[edge_mask & (output_array<=edge_flt)]=edge_flt
+        output_array[edge_mask & (output_array <= edge_flt)] = edge_flt
 
     # Build priority queue and place edge pixels into queue
     put = heapq.heappush
     get = heapq.heappop
     fill_heap = [
-        (output_array[t_row,t_col], int(t_row), int(t_col), 1)
+        (output_array[t_row, t_col], int(t_row), int(t_col), 1)
         for t_row, t_col in np.transpose(np.where(edge_mask))]
     heapq.heapify(fill_heap)
     # logging.info("    Queue Size: %s" % len(fill_heap))
@@ -1444,7 +1440,7 @@ def flood_fill(test_array, four_way_flag=True, edge_flt=None):
                         continue
                 except IndexError:
                     continue
-            if output_array[n_row, n_col]==h_max:
+            if output_array[n_row, n_col] == h_max:
                 output_array[n_row, n_col] = max(
                     h_crt, input_array[n_row, n_col])
                 put(fill_heap,
@@ -1452,7 +1448,8 @@ def flood_fill(test_array, four_way_flag=True, edge_flt=None):
     return output_array
 
 
-def np_binary_erosion(input_array, structure=np.ones((3,3)).astype(np.bool)):
+def np_binary_erosion(input_array,
+                      structure=np.ones((3, 3)).astype(np.bool)):
     """NumPy binary erosion function
 
     No error checking on input array (type)
@@ -1477,7 +1474,7 @@ def np_binary_erosion(input_array, structure=np.ones((3,3)).astype(np.bool)):
     output_shape = tuple(
         ss + dd - 1 for ss, dd in zip(input_array.shape, structure.shape))
     input_pad_array = np.zeros(output_shape).astype(np.bool)
-    input_pad_array[1:rows+1, 1:cols+1] = input_array
+    input_pad_array[1: rows+1, 1: cols+1] = input_array
     binary_erosion = np.zeros(output_shape).astype(np.bool)
 
     # Cast structure element to boolean
@@ -1489,5 +1486,5 @@ def np_binary_erosion(input_array, structure=np.ones((3,3)).astype(np.bool)):
             # The value of the output pixel is the minimum value of all the
             #   pixels in the input pixel's neighborhood.
             binary_erosion[row+1, col+1] = np.min(
-                input_pad_array[row:row+3, col:col+3][struc_mask])
-    return binary_erosion[1:rows+1, 1:cols+1]
+                input_pad_array[row: row+3, col: col+3][struc_mask])
+    return binary_erosion[1: rows+1, 1: cols+1]

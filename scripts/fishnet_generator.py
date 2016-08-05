@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW fishnet generator
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
@@ -11,17 +11,13 @@ import argparse
 import ConfigParser
 import datetime as dt
 import logging
-# import math
 import os
-# import re
 import sys
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
-# import numpy as np
 
-from support_functions import *
+import support_functions as support
 
 
 def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
@@ -37,7 +33,7 @@ def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -46,7 +42,7 @@ def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
     logging.debug('\nReading Input File')
 
@@ -63,13 +59,14 @@ def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
     study_area_path = inputs_cfg.get('INPUTS', 'study_area_path')
     if not arcpy.Exists(study_area_path):
         logging.error(
-            '\nERROR: Study area ({0}) does not exist'.format(
+            '\nERROR: Study area ({}) does not exist'.format(
                 study_area_path))
         sys.exit()
 
     # For now, study area has to be a polygon
     if arcpy.Describe(study_area_path).datasetType != 'FeatureClass':
-        logging.error('\nERROR: For now, study area must be a polygon shapefile')
+        logging.error(
+            '\nERROR: For now, study area must be a polygon shapefile')
         sys.exit()
 
     # Build output folder if necessary
@@ -91,17 +88,17 @@ def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
     # Get spatial reference of study_area
     study_area_desc = arcpy.Describe(study_area_path)
     study_area_sr = study_area_desc.spatialReference
-    logging.debug('\n  Study area: {0}'.format(study_area_path))
-    logging.debug('  Study area spat. ref.:  {0}'.format(
+    logging.debug('\n  Study area: {}'.format(study_area_path))
+    logging.debug('  Study area spat. ref.:  {}'.format(
         study_area_sr.name))
-    logging.debug('  Study area GCS:         {0}'.format(
+    logging.debug('  Study area GCS:         {}'.format(
         study_area_sr.GCS.name))
 
     # Set spatial reference of hru shapefile
     # If the spatial reference can be set to an int,
     #   assume it is an EPSG or ArcGIS WKID
     # If not, try setting the spatial reference directly from
-    if is_number(hru.sr_name):
+    if support.is_number(hru.sr_name):
         hru.sr = arcpy.SpatialReference(int(hru.sr_name))
     elif os.path.isfile(hru.sr_name) and hru.sr_name.endswith('.prj'):
         hru.sr = arcpy.SpatialReference(hru.sr_name)
@@ -110,8 +107,8 @@ def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
         hru.sr = arcpy.Describe(hru.sr_name).spatialReference
     else:
         hru.sr = arcpy.SpatialReference(hru.sr_name)
-    logging.debug('  HRU spat. ref.: {0}'.format(hru.sr.name))
-    logging.debug('  HRU GCS:        {0}'.format(hru.sr.GCS.name))
+    logging.debug('  HRU spat. ref.: {}'.format(hru.sr.name))
+    logging.debug('  HRU GCS:        {}'.format(hru.sr.GCS.name))
 
     # If study area spat_ref doesn't match hru_param spat_ref
     # Project study are to hru_param and get projected extent
@@ -120,34 +117,34 @@ def fishnet_func(config_path, overwrite_flag=False, debug_flag=False):
     if hru.sr.name != study_area_sr.name:
         logging.info('\n  Projecting study area...')
         # Set preferred transforms
-        transform_str = transform_func(hru.sr, study_area_sr)
-        logging.debug('    Transform: {0}'.format(transform_str))
+        transform_str = support.transform_func(hru.sr, study_area_sr)
+        logging.debug('    Transform: {}'.format(transform_str))
         # Project study area
         arcpy.Project_management(
             study_area_path, study_area_proj_path, hru.sr,
             transform_str, study_area_sr)
         study_area_extent = arcpy.Describe(study_area_proj_path).extent
         arcpy.Delete_management(study_area_proj_path)
-        logging.info('\n  Projected extent:  {0}'.format(
-            extent_string(study_area_extent)))
+        logging.info('\n  Projected extent:  {}'.format(
+            support.extent_string(study_area_extent)))
         del study_area_proj_path, transform_str
     else:
         study_area_extent = arcpy.Describe(study_area_path).extent
-        logging.info('\n  Study Area extent: {0}'.format(
-            extent_string(study_area_extent)))
+        logging.info('\n  Study Area extent: {}'.format(
+            support.extent_string(study_area_extent)))
 
     # Buffer extent
-    buffer_extent = buffer_extent_func(
+    buffer_extent = support.buffer_extent_func(
         study_area_extent, hru.buffer_cells * hru.cs)
-    logging.info('  HRU extent:        {0}'.format(
-        extent_string(buffer_extent)))
+    logging.info('  HRU extent:        {}'.format(
+        support.extent_string(buffer_extent)))
 
     # Adjust study area extent to reference points
     hru.ref_pnt = arcpy.Point(hru.ref_x, hru.ref_y)
-    hru.extent = adjust_extent_to_snap(
+    hru.extent = support.adjust_extent_to_snap(
         buffer_extent, hru.ref_pnt, hru.cs, hru.snap_method)
-    logging.info('  Snapped Extent:    {0}'.format(
-        extent_string(hru.extent)))
+    logging.info('  Snapped Extent:    {}'.format(
+        support.extent_string(hru.extent)))
 
     # Build hru_param
     logging.info('\nBuilding HRU parameter fishnet')
@@ -167,14 +164,14 @@ def build_fishnet_func(hru_polygon_path, hru_point_path, extent, cs, sr):
         arcpy.Delete_management(hru_point_path)
     # Calculate LL/UR corner points
     origin_pnt = (extent.XMin, extent.YMin)
-    yaxis_pnt = (extent.XMin, extent.YMin+cs)
+    yaxis_pnt = (extent.XMin, extent.YMin + cs)
     corner_pnt = (extent.XMax, extent.YMax)
     origin_str = ' '.join(map(str, origin_pnt))
     yaxis_str = ' '.join(map(str, yaxis_pnt))
     corner_str = ' '.join(map(str, corner_pnt))
-    logging.debug('  Origin: {0}'.format(origin_str))
-    logging.debug('  Y-Axis: {0}'.format(yaxis_str))
-    logging.debug('  Corner: {0}'.format(corner_str))
+    logging.debug('  Origin: {}'.format(origin_str))
+    logging.debug('  Y-Axis: {}'.format(yaxis_str))
+    logging.debug('  Corner: {}'.format(corner_str))
     # Build fishnet & labels
     arcpy.CreateFishnet_management(
         hru_polygon_path, origin_str, yaxis_str, cs, cs,
@@ -195,7 +192,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -209,9 +206,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

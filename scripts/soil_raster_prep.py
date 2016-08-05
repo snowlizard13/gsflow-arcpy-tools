@@ -3,26 +3,21 @@
 # Purpose:      GSFLOW soil raster prep
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
 import argparse
-# from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
 import os
-# import re
 import sys
-# import tempfile
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
-# import numpy as np
 
-from support_functions import *
+import support_functions as support
 
 
 def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
@@ -38,7 +33,7 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -47,7 +42,7 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
 
     # Log DEBUG to file
@@ -86,7 +81,7 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist'.format(
+            '\nERROR: Fishnet ({}) does not exist'.format(
                 hru.polygon_path))
         sys.exit()
     # All of the soil rasters must exist
@@ -127,7 +122,7 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
         sys.exit()
     soil_proj_method_list = ['BILINEAR', 'CUBIC', 'NEAREST']
     if soil_proj_method.upper() not in soil_proj_method_list:
-        logging.error('\nERROR: Soil projection method must be: {0}'.format(
+        logging.error('\nERROR: Soil projection method must be: {}'.format(
             ', '.join(soil_proj_method_list)))
         sys.exit()
 
@@ -163,133 +158,133 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
 
     # Available Water Capacity (AWC)
     logging.info('\nProjecting/clipping AWC raster')
-    soil_orig_sr = Raster(awc_orig_path).spatialReference
-    logging.debug('  AWC GCS:  {0}'.format(
+    soil_orig_sr = arcpy.sa.Raster(awc_orig_path).spatialReference
+    logging.debug('  AWC GCS:  {}'.format(
         soil_orig_sr.GCS.name))
     # Remove existing projected raster
     if arcpy.Exists(awc_path):
         arcpy.Delete_management(awc_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, soil_orig_sr)
-    logging.debug('  Transform: {0}'.format(transform_str))
+    transform_str = support.transform_func(hru.sr, soil_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
     logging.debug('  Projection method: NEAREST')
     # Project soil raster
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
-    project_raster_func(
+    support.project_raster_func(
         awc_orig_path, awc_path, hru.sr,
         soil_proj_method, soil_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
+        '{} {}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    awc_orig_path, awc_path, hru.sr,
     #    soil_proj_method, soil_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    soil_orig_sr)
     # arcpy.ClearEnvironment('extent')
 
     # Percent clay
     logging.info('Projecting/clipping clay raster')
-    soil_orig_sr = Raster(clay_pct_orig_path).spatialReference
-    logging.debug('  Clay GCS: {0}'.format(
+    soil_orig_sr = arcpy.sa.Raster(clay_pct_orig_path).spatialReference
+    logging.debug('  Clay GCS: {}'.format(
         soil_orig_sr.GCS.name))
     # Remove existing projected raster
     if arcpy.Exists(clay_pct_path):
         arcpy.Delete_management(clay_pct_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, soil_orig_sr)
-    logging.debug('  Transform: {0}'.format(transform_str))
+    transform_str = support.transform_func(hru.sr, soil_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
     logging.debug('  Projection method: NEAREST')
     # Project soil raster
     # DEADBEEF - Arc10.2 ProjectRaster does not extent
-    project_raster_func(
+    support.project_raster_func(
         clay_pct_orig_path, clay_pct_path, hru.sr,
         soil_proj_method, soil_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
+        '{} {}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    clay_pct_orig_path, clay_pct_path, hru.sr,
     #    soil_proj_method, soil_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    soil_orig_sr)
     # arcpy.ClearEnvironment('extent')
 
     # Percent sand
     logging.info('Projecting/clipping sand raster')
-    soil_orig_sr = Raster(sand_pct_orig_path).spatialReference
-    logging.debug('  Sand GCS: {0}'.format(
+    soil_orig_sr = arcpy.sa.Raster(sand_pct_orig_path).spatialReference
+    logging.debug('  Sand GCS: {}'.format(
         soil_orig_sr.GCS.name))
     # Remove existing projected raster
     if arcpy.Exists(sand_pct_path):
         arcpy.Delete_management(sand_pct_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, soil_orig_sr)
-    logging.debug('  Transform: {0}'.format(transform_str))
+    transform_str = support.transform_func(hru.sr, soil_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
     logging.debug('  Projection method: NEAREST')
     # Project soil raster
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
-    project_raster_func(
+    support.project_raster_func(
         sand_pct_orig_path, sand_pct_path, hru.sr,
         soil_proj_method, soil_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
+        '{} {}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    sand_pct_orig_path, sand_pct_path, hru.sr,
     #    soil_proj_method, soil_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    soil_orig_sr)
     # arcpy.ClearEnvironment('extent')
 
     # Hydraulic conductivity
     # if calc_ssr2gw_rate_flag or calc_slowcoef_flag:
     logging.info('Projecting/clipping ksat raster')
-    ksat_orig_sr = Raster(ksat_orig_path).spatialReference
-    logging.debug('  Ksat GCS: {0}'.format(
+    ksat_orig_sr = arcpy.sa.Raster(ksat_orig_path).spatialReference
+    logging.debug('  Ksat GCS: {}'.format(
         soil_orig_sr.GCS.name))
     # Remove existing projected raster
     if arcpy.Exists(ksat_path):
         arcpy.Delete_management(ksat_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, ksat_orig_sr)
-    logging.debug('  Transform: {0}'.format(transform_str))
+    transform_str = support.transform_func(hru.sr, ksat_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
     logging.debug('  Projection method: NEAREST')
     # Project ksat raster
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
-    project_raster_func(
+    support.project_raster_func(
         ksat_orig_path, ksat_path, hru.sr,
         soil_proj_method, soil_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
+        '{} {}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    ksat_orig_path, ksat_path, hru.sr,
     #    soil_proj_method, soil_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    soil_orig_sr)
     # arcpy.ClearEnvironment('extent')
 
     # Soil depth is only needed if clipping root depth
     if clip_root_depth_flag:
         logging.info('\nProjecting/clipping depth raster')
-        soil_orig_sr = Raster(soil_depth_orig_path).spatialReference
-        logging.debug('  Depth GCS: {0}'.format(
+        soil_orig_sr = arcpy.sa.Raster(soil_depth_orig_path).spatialReference
+        logging.debug('  Depth GCS: {}'.format(
             soil_orig_sr.GCS.name))
         # Remove existing projected raster
         if arcpy.Exists(soil_depth_path):
             arcpy.Delete_management(soil_depth_path)
         # Set preferred transforms
-        transform_str = transform_func(hru.sr, soil_orig_sr)
-        logging.debug('  Transform: {0}'.format(transform_str))
+        transform_str = support.transform_func(hru.sr, soil_orig_sr)
+        logging.debug('  Transform: {}'.format(transform_str))
         logging.debug('  Projection method: NEAREST')
         # Project soil raster
         # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
-        project_raster_func(
+        support.project_raster_func(
             soil_depth_orig_path, soil_depth_path, hru.sr,
             soil_proj_method, soil_cs, transform_str,
-            '{0} {1}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
+            '{} {}'.format(hru.ref_x, hru.ref_y), soil_orig_sr, hru)
         # env.extent = hru.extent
         # arcpy.ProjectRaster_management(
         #    soil_depth_orig_path, soil_depth_path, hru.sr,
         #    soil_proj_method, soil_cs, transform_str,
-        #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+        #    '{} {}'.format(hru.ref_x, hru.ref_y),
         #    soil_orig_sr)
         # arcpy.ClearEnvironment('extent')
 
@@ -299,8 +294,8 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
     #    # Minimum of root depth and soil depth
     #    logging.info('Clipping root depth to soil depth')
     #    root_depth_obj = Con(
-    #        Raster(root_depth_path) < Raster(soil_depth_path),
-    #        Raster(root_depth_path), Raster(soil_depth_path))
+    #       arcpy.sa.Raster(root_depth_path) <arcpy.sa.Raster(soil_depth_path),
+    #       arcpy.sa.Raster(root_depth_path),arcpy.sa.Raster(soil_depth_path))
     #    root_depth_obj.save(root_depth_path)
     #    del root_depth_obj
 
@@ -312,10 +307,10 @@ def soil_raster_prep(config_path, overwrite_flag=False, debug_flag=False):
         if clip_root_depth_flag:
             soil_raster_list.append(soil_depth_path)
         for soil_raster_path in soil_raster_list:
-            logging.info('  {0}'.format(soil_raster_path))
+            logging.info('  {}'.format(soil_raster_path))
             # DEADBEEF - Check if there is any nodata to be filled first?
             mask_obj = Int(1000 * SetNull(
-                Raster(soil_raster_path) < 0, Raster(soil_raster_path)))
+               arcpy.sa.Raster(soil_raster_path) < 0,arcpy.sa.Raster(soil_raster_path)))
             input_obj = Con(IsNull(mask_obj), 0, mask_obj)
             nibble_obj = 0.001 * Nibble(input_obj, mask_obj, 'ALL_VALUES')
             nibble_obj.save(soil_raster_path)
@@ -334,7 +329,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -348,9 +343,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 

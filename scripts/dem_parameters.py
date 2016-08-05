@@ -3,25 +3,21 @@
 # Purpose:      GSFLOW DEM parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-02-26
+# Created       2016-08-04
 # Python:       2.7
 #--------------------------------
 
 import argparse
-# from collections import defaultdict
 import ConfigParser
 import datetime as dt
 import logging
 import os
-# import re
 import sys
 
 import arcpy
 from arcpy import env
-from arcpy.sa import *
-# import numpy as np
 
-from support_functions import *
+import support_functions as support
 
 
 def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
@@ -37,7 +33,7 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru parameters class
-    hru = HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -46,7 +42,7 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     except:
         logging.error('\nERROR: Config file could not be read, ' +
                       'is not an input file, or does not exist\n' +
-                      'ERROR: config_file = {0}\n').format(config_path)
+                      'ERROR: config_file = {}\n').format(config_path)
         sys.exit()
     logging.debug('\nReading Input File')
 
@@ -79,7 +75,8 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     if calc_flow_acc_dem_flag:
         # Get factor for scaling dem_flowacc values to avoid 32 bit int limits
         try:
-            flow_acc_dem_factor = float(inputs_cfg.get('INPUTS', 'flow_acc_dem_factor'))
+            flow_acc_dem_factor = float(
+                inputs_cfg.get('INPUTS', 'flow_acc_dem_factor'))
         except:
             # This is a worst case for keeping flow_acc_dem from exceeding 2E9
             # Assume all cells flow to 1 cell
@@ -96,10 +93,10 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
             # If the ratio is less than 0.1, round up to 0.1 so factor -> 1.0
             flow_acc_dem_factor = min(0.1, flow_acc_dem_factor)
             # Round up to next multiple of 10 just to be safe
-            flow_acc_dem_factor = 1.0 / 10**(int(math.log10(flow_acc_dem_factor))+1)
+            flow_acc_dem_factor = 1.0 / 10 ** (int(math.log10(flow_acc_dem_factor)) + 1)
             logging.info(
                 ('  flow_acc_dem_factor was not set in the input file\n' +
-                 '  Using automatic flow_acc_dem_factor: {0}').format(
+                 '  Using automatic flow_acc_dem_factor: {}').format(
                      flow_acc_dem_factor))
 
     # Calc flow_acc/flow_dir
@@ -121,12 +118,12 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
-            '\nERROR: Fishnet ({0}) does not exist\n'.format(hru.polygon_path))
+            '\nERROR: Fishnet ({}) does not exist\n'.format(hru.polygon_path))
         sys.exit()
     # Check that either the original DEM raster exists
     if not arcpy.Exists(dem_orig_path):
         logging.error(
-            '\nERROR: DEM ({0}) raster does not exist\n'.format(dem_orig_path))
+            '\nERROR: DEM ({}) raster does not exist\n'.format(dem_orig_path))
         sys.exit()
     # Check that remap folder is valid
     if not os.path.isdir(remap_ws):
@@ -143,24 +140,24 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # DEADBEEF
     # if not os.path.isfile(aspect_remap_path):
     #    logging.error(
-    #        '\nERROR: ASCII remap file ({0}) does not exist\n'.format(
+    #        '\nERROR: ASCII remap file ({}) does not exist\n'.format(
     #            os.path.basename(aspect_remap_path)))
     #    sys.exit()
     # if not os.path.isfile(temp_adj_remap_path):
     #    logging.error(
-    #        '\nERROR: ASCII remap file ({0}) does not exist\n'.format(
+    #        '\nERROR: ASCII remap file ({}) does not exist\n'.format(
     #            os.path.basename(temp_adj_remap_path)))
     #    sys.exit()
     #  Check remap files comment style
     # if '10.2' in arcpy.GetInstallInfo()['version']:
     #    if remap_comment_check(aspect_remap_path):
     #        logging.error(
-    #            ('\nERROR: ASCII remap file ({0}) has pre-ArcGIS 10.2 ' +
+    #            ('\nERROR: ASCII remap file ({}) has pre-ArcGIS 10.2 ' +
     #             'comments\n').format(os.path.basename(aspect_remap_path)))
     #        sys.exit()
     #    if remap_comment_check(temp_adj_remap_path):
     #        logging.error(
-    #            ('\nERROR: ASCII remap file ({0}) has pre-ArcGIS 10.2 ' +
+    #            ('\nERROR: ASCII remap file ({}) has pre-ArcGIS 10.2 ' +
     #             'comments\n').format(os.path.basename(temp_adj_remap_path)))
     #        sys.exit()
 
@@ -170,11 +167,11 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
         sys.exit()
     dem_proj_method_list = ['BILINEAR', 'CUBIC', 'NEAREST']
     if dem_proj_method not in dem_proj_method_list:
-        logging.error('\nERROR: DEM projection method must be: {0}'.format(
+        logging.error('\nERROR: DEM projection method must be: {}'.format(
             ', '.join(dem_proj_method_list)))
         sys.exit()
     if reset_dem_adj_flag:
-        logging.warning('\nWARNING: All values in {0} will be overwritten'.format(
+        logging.warning('\nWARNING: All values in {} will be overwritten'.format(
             hru.dem_adj_field))
         raw_input('  Press ENTER to continue')
 
@@ -209,33 +206,33 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Check DEM field
     logging.info('\nAdding DEM fields if necessary')
-    add_field_func(hru.polygon_path, hru.dem_mean_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_median_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_max_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_min_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_adj_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_mean_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_median_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_max_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_min_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_adj_field, 'DOUBLE')
     if calc_flow_acc_dem_flag:
-        add_field_func(hru.polygon_path, hru.dem_flowacc_field, 'DOUBLE')
-        add_field_func(hru.polygon_path, hru.dem_sum_field, 'DOUBLE')
-        add_field_func(hru.polygon_path, hru.dem_count_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.elev_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.aspect_field, 'LONG')
-    add_field_func(hru.polygon_path, hru.slope_deg_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.slope_rad_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.slope_pct_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.dem_flowacc_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.dem_sum_field, 'DOUBLE')
+        support.add_field_func(hru.polygon_path, hru.dem_count_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_sink8_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_sink4_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_aspect_field, 'LONG')
+    support.add_field_func(hru.polygon_path, hru.dem_slope_deg_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_slope_rad_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_slope_pct_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.dem_feet_field, 'DOUBLE')
     # add_field_func(hru.polygon_path, hru.deplcrv_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.jh_tmin_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.jh_tmax_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.jh_coef_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.snarea_thresh_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.tmax_adj_field, 'DOUBLE')
-    add_field_func(hru.polygon_path, hru.tmin_adj_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.jh_tmin_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.jh_tmax_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.jh_coef_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.snarea_thresh_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.tmax_adj_field, 'DOUBLE')
+    support.add_field_func(hru.polygon_path, hru.tmin_adj_field, 'DOUBLE')
 
     # Check that dem_adj_copy_field exists
     if len(arcpy.ListFields(hru.polygon_path, dem_adj_copy_field)) == 0:
-        logging.error('\nERROR: dem_adj_copy_field {0} does not exist\n'.format(
+        logging.error('\nERROR: dem_adj_copy_field {} does not exist\n'.format(
             dem_adj_copy_field))
         sys.exit()
 
@@ -251,42 +248,42 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     #    dem_path, 'projected DEM', hru, dem_cs)
     # if arcpy.Exists(dem_orig_path) and not dem_flag:
     logging.info('\nProjecting DEM raster')
-    dem_orig_sr = Raster(dem_orig_path).spatialReference
-    logging.debug('  DEM GCS:   {0}'.format(
+    dem_orig_sr = arcpy.sa.Raster(dem_orig_path).spatialReference
+    logging.debug('  DEM GCS:   {}'.format(
         dem_orig_sr.GCS.name))
     # Remove existing projected DEM
     if arcpy.Exists(dem_path):
         arcpy.Delete_management(dem_path)
     # Set preferred transforms
-    transform_str = transform_func(hru.sr, dem_orig_sr)
-    logging.debug('  Transform: {0}'.format(transform_str))
-    logging.debug('  Projection method: {0}'.format(dem_proj_method))
+    transform_str = support.transform_func(hru.sr, dem_orig_sr)
+    logging.debug('  Transform: {}'.format(transform_str))
+    logging.debug('  Projection method: {}'.format(dem_proj_method))
     # Project DEM
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
-    logging.debug('  Input SR:  {0}'.format(dem_orig_sr.exportToString()))
-    logging.debug('  Output SR: {0}'.format(hru.sr.exportToString()))
-    project_raster_func(
+    logging.debug('  Input SR:  {}'.format(dem_orig_sr.exportToString()))
+    logging.debug('  Output SR: {}'.format(hru.sr.exportToString()))
+    support.project_raster_func(
         dem_orig_path, dem_path, hru.sr,
         dem_proj_method, dem_cs, transform_str,
-        '{0} {1}'.format(hru.ref_x, hru.ref_y),
+        '{} {}'.format(hru.ref_x, hru.ref_y),
         dem_orig_sr, hru)
     # env.extent = hru.extent
     # arcpy.ProjectRaster_management(
     #    dem_orig_path, dem_path, hru.sr,
     #    dem_proj_method, dem_cs, transform_str,
-    #    '{0} {1}'.format(hru.ref_x, hru.ref_y),
+    #    '{} {}'.format(hru.ref_x, hru.ref_y),
     #    dem_orig_sr)
     # arcpy.ClearEnvironment('extent')
 
     # Check linear unit of raster
     # DEADBEEF - The conversion could probably be dynamic
-    dem_obj = Raster(dem_path)
+    dem_obj = arcpy.sa.Raster(dem_path)
     linear_unit_list = ['METER', 'FOOT_US', 'FOOT']
     linear_unit = dem_obj.spatialReference.linearUnitName.upper()
     if linear_unit not in linear_unit_list:
         logging.error(
             '\nERROR: The linear unit of the projected/clipped DEM must' +
-            ' be meters or feet\n  {0}'.format(linear_unit))
+            ' be meters or feet\n  {}'.format(linear_unit))
         sys.exit()
     del dem_obj
 
@@ -297,13 +294,13 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     del dem_fill_obj
     if calc_flow_dir_flag:
         logging.info('Calculating flow direction raster')
-        dem_fill_obj = Raster(dem_fill_path)
+        dem_fill_obj = arcpy.sa.Raster(dem_fill_path)
         flow_dir_obj = FlowDirection(dem_fill_obj, True)
         flow_dir_obj.save(flow_dir_path)
         del flow_dir_obj, dem_fill_obj
     if calc_flow_acc_flag:
         logging.info('Calculating flow accumulation raster')
-        flow_dir_obj = Raster(flow_dir_path)
+        flow_dir_obj = arcpy.sa.Raster(flow_dir_path)
         flow_acc_obj = FlowAccumulation(flow_dir_obj)
         flow_acc_obj.save(flow_acc_path)
         del flow_acc_obj, flow_dir_obj
@@ -313,7 +310,7 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
         flow_acc_filter_obj = Filter(Raster(flow_acc_path), 'LOW', 'NODATA')
         flow_acc_filter_obj *= flow_acc_dem_factor
         flow_acc_filter_obj.save(flow_acc_filter_path)
-        flow_acc_dem_obj = Raster(dem_fill_path) * flow_acc_filter_obj
+        flow_acc_dem_obj = arcpy.sa.Raster(dem_fill_path) * flow_acc_filter_obj
         flow_acc_dem_obj.save(flow_acc_dem_path)
         del flow_acc_dem_obj, flow_acc_filter_obj
 
@@ -341,8 +338,8 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     del dem_aspect_obj
 
     # Reclassify aspect
-    logging.debug('  Reclassifying: {0}'.format(aspect_remap_path))
-    dem_aspect_reclass_obj = ReclassByASCIIFile(
+    logging.debug('  Reclassifying: {}'.format(aspect_remap_path))
+    dem_aspect_reclass_obj = arcpy.sa.ReclassByASCIIFile(
         dem_aspect_path, aspect_remap_path)
     dem_aspect_reclass_obj.save(dem_aspect_reclass_path)
     del dem_aspect_reclass_obj
@@ -371,56 +368,55 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # zs_dem_dict[hru.dem_median_field] = [dem_integer_path, 'MEDIAN']
     zs_dem_dict[hru.dem_max_field] = [dem_path, 'MAXIMUM']
     zs_dem_dict[hru.dem_min_field] = [dem_path, 'MINIMUM']
-    # zs_dem_dict[hru.elev_field]   = [dem_integer_path, 'MEDIAN']
-    # zs_dem_dict[hru.aspect_field] = [dem_aspect_path, 'MINIMUM']
-    zs_dem_dict[hru.aspect_field] = [dem_aspect_reclass_path, 'MAJORITY']
-    zs_dem_dict[hru.slope_deg_field] = [dem_slope_path, 'MEAN']
+    zs_dem_dict[hru.dem_aspect_field] = [dem_aspect_reclass_path, 'MAJORITY']
+    zs_dem_dict[hru.dem_slope_deg_field] = [dem_slope_path, 'MEAN']
     zs_dem_dict[hru.tmax_adj_field] = [temp_adj_path, 'MEAN']
     zs_dem_dict[hru.tmin_adj_field] = [temp_adj_path, 'MEAN']
 
 
     # Calculate DEM zonal statistics
     logging.info('\nCalculating DEM zonal statistics')
-    zonal_stats_func(zs_dem_dict, hru.polygon_path, hru.point_path, hru)
+    support.zonal_stats_func(
+        zs_dem_dict, hru.polygon_path, hru.point_path, hru)
 
     # Reset DEM_MEDIAN
-    # logging.info('\nCalculating {0}'.format(hru.dem_median_field))
+    # logging.info('\nCalculating {}'.format(hru.dem_median_field))
     # arcpy.CalculateField_management(
     #    hru.polygon_path, hru.dem_median_field,
     #    # Convert meters to feet
-    #    '0.01 * !{0}!'.format(hru.dem_median_field), 'PYTHON')
+    #    '0.01 * !{}!'.format(hru.dem_median_field), 'PYTHON')
 
     # Calculate HRU_ELEV (HRU elevation in feet)
-    logging.info('\nCalculating initial {0} from {1}'.format(
-        hru.elev_field, hru.dem_mean_field))
+    logging.info('\nCalculating initial {} from {}'.format(
+        hru.dem_feet_field, hru.dem_adj_field))
     if linear_unit in ['METERS']:
         logging.info('  Converting from meters to feet')
         arcpy.CalculateField_management(
-            hru.polygon_path, hru.elev_field,
-            '!{0}! * 3.28084'.format(hru.dem_mean_field), 'PYTHON')
+            hru.polygon_path, hru.dem_feet_field,
+            '!{}! * 3.28084'.format(hru.dem_adj_field), 'PYTHON')
     elif linear_unit in ['FOOT_US', 'FOOT']:
         arcpy.CalculateField_management(
-            hru.polygon_path, hru.elev_field,
-            '!{0}!'.format(hru.dem_mean_field), 'PYTHON')
+            hru.polygon_path, hru.dem_feet_field,
+            '!{}!'.format(hru.dem_adj_field), 'PYTHON')
 
 
     # Flow accumulation weighted elevation
     if calc_flow_acc_dem_flag:
-        logging.info('Calculating {0}'.format(hru.dem_flowacc_field))
+        logging.info('Calculating {}'.format(hru.dem_flowacc_field))
         hru_polygon_layer = 'hru_polygon_layer'
         arcpy.MakeFeatureLayer_management(
             hru.polygon_path, hru_polygon_layer)
         arcpy.SelectLayerByAttribute_management(
             hru_polygon_layer, "NEW_SELECTION",
-            '"{0}" > 0'.format(hru.dem_count_field))
+            '"{}" > 0'.format(hru.dem_count_field))
         arcpy.CalculateField_management(
             hru_polygon_layer, hru.dem_flowacc_field,
-            'float(!{0}!) / !{1}!'.format(hru.dem_sum_field, hru.dem_count_field),
+            'float(!{}!) / !{}!'.format(hru.dem_sum_field, hru.dem_count_field),
             'PYTHON')
         # Clear dem_flowacc for any cells that have zero sum or count
         arcpy.SelectLayerByAttribute_management(
             hru_polygon_layer, "NEW_SELECTION",
-            '("{0}" = 0) OR ("{1}" = 0)'.format(
+            '("{}" = 0) OR ("{}" = 0)'.format(
                 hru.dem_count_field, hru.dem_sum_field))
         arcpy.CalculateField_management(
             hru_polygon_layer, hru.dem_flowacc_field, 0, 'PYTHON')
@@ -430,39 +426,39 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Fill DEM_ADJ if it is not set
     if all([row[0] == 0 for row in arcpy.da.SearchCursor(
-        hru.polygon_path, [hru.dem_adj_field])]):
-        logging.info('Filling {0} from {1}'.format(
+            hru.polygon_path, [hru.dem_adj_field])]):
+        logging.info('Filling {} from {}'.format(
             hru.dem_adj_field, dem_adj_copy_field))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.dem_adj_field,
-            'float(!{0}!)'.format(dem_adj_copy_field), 'PYTHON')
+            'float(!{}!)'.format(dem_adj_copy_field), 'PYTHON')
     elif reset_dem_adj_flag:
-        logging.info('Filling {0} from {1}'.format(
+        logging.info('Filling {} from {}'.format(
             hru.dem_adj_field, dem_adj_copy_field))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.dem_adj_field,
-            'float(!{0}!)'.format(dem_adj_copy_field), 'PYTHON')
+            'float(!{}!)'.format(dem_adj_copy_field), 'PYTHON')
     else:
         logging.info(
-            ('{0} appears to already have been set and ' +
+            ('{} appears to already have been set and ' +
              'will not be overwritten').format(hru.dem_adj_field))
 
     # HRU_SLOPE in radians
-    logging.info('Calculating {0} (Slope in Radians)'.format(
-        hru.slope_rad_field))
+    logging.info('Calculating {} (Slope in Radians)'.format(
+        hru.dem_slope_rad_field))
     arcpy.CalculateField_management(
-        hru.polygon_path, hru.slope_rad_field,
-        'math.pi * !{0}! / 180'.format(hru.slope_deg_field), 'PYTHON')
+        hru.polygon_path, hru.dem_slope_rad_field,
+        'math.pi * !{}! / 180'.format(hru.dem_slope_deg_field), 'PYTHON')
     # HRU_SLOPE in percent
-    logging.info('Calculating {0} (Percent Slope)'.format(
-        hru.slope_pct_field))
+    logging.info('Calculating {} (Percent Slope)'.format(
+        hru.dem_slope_pct_field))
     arcpy.CalculateField_management(
-        hru.polygon_path, hru.slope_pct_field,
-        'math.tan(!{0}!)'.format(hru.slope_rad_field), 'PYTHON')
+        hru.polygon_path, hru.dem_slope_pct_field,
+        'math.tan(!{}!)'.format(hru.dem_slope_rad_field), 'PYTHON')
 
     # HRU_DEPLCRV
     # deplcrv is set to 1 for all active cells when writing parameter file
-    # logging.info('Calculating {0}'.format(hru.deplcrv_field))
+    # logging.info('Calculating {}'.format(hru.deplcrv_field))
     # arcpy.CalculateField_management(
     #    hru.polygon_path, hru.deplcrv_field, '1', 'PYTHON')
 
@@ -472,18 +468,18 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # If max July value is 0, use default values
     if (calc_prism_jh_coef_flag and
         (len(arcpy.ListFields(hru.polygon_path, 'TMAX_07')) == 0 or
-         field_stat_func(hru.polygon_path, 'TMAX_07', 'MAXIMUM') == 0)):
+         support.field_stat_func(hru.polygon_path, 'TMAX_07', 'MAXIMUM') == 0)):
         calc_prism_jh_coef_flag = False
     # Use PRISM temperature values
     if calc_prism_jh_coef_flag:
         logging.info('  Using PRISM temperature values')
-        tmax_field_list = ['!TMAX_{0:02d}!'.format(m) for m in range(1, 13)]
-        tmin_field_list = ['!TMIN_{0:02d}!'.format(m) for m in range(1, 13)]
-        tmax_expr = 'max([{0}])'.format(','.join(tmax_field_list))
+        tmax_field_list = ['!TMAX_{:02d}!'.format(m) for m in range(1, 13)]
+        tmin_field_list = ['!TMIN_{:02d}!'.format(m) for m in range(1, 13)]
+        tmax_expr = 'max([{}])'.format(','.join(tmax_field_list))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.jh_tmax_field, tmax_expr, 'PYTHON')
         # Get TMIN for same month as maximum TMAX
-        tmin_expr = 'max(zip([{0}],[{1}]))[1]'.format(
+        tmin_expr = 'max(zip([{}],[{}]))[1]'.format(
             ','.join(tmax_field_list), ','.join(tmin_field_list))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.jh_tmin_field, tmin_expr, 'PYTHON')
@@ -494,16 +490,17 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
             hru.polygon_path, hru.jh_tmax_field, 25, 'PYTHON')
         arcpy.CalculateField_management(
             hru.polygon_path, hru.jh_tmin_field, 7, 'PYTHON')
-    jensen_haise_func(
-        hru.polygon_path, hru.jh_coef_field, hru.elev_field,
+    support.jensen_haise_func(
+        hru.polygon_path, hru.jh_coef_field, hru.dem_feet_field,
         hru.jh_tmin_field, hru.jh_tmax_field)
 
     # SNAREA_THRESH
-    logging.info('Calculating {0}'.format(hru.snarea_thresh_field))
-    elev_min = field_stat_func(hru.polygon_path, hru.elev_field, 'MINIMUM')
+    logging.info('Calculating {}'.format(hru.snarea_thresh_field))
+    elev_min = support.field_stat_func(
+        hru.polygon_path, hru.dem_feet_field, 'MINIMUM')
     arcpy.CalculateField_management(
         hru.polygon_path, hru.snarea_thresh_field,
-        '(!{0}! - {1}) * 0.005'.format(hru.elev_field, elev_min),
+        '(!{}! - {}) * 0.005'.format(hru.dem_feet_field, elev_min),
         'PYTHON')
 
     # Clear slope/aspect values for lake cells (HRU_TYPE == 2)
@@ -518,13 +515,13 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
             '"{0}" = 2 OR ("{0}" = 0 AND "{1}" = 0)'.format(
                 hru.type_field, hru.dem_adj_field))
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.aspect_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_aspect_field, 0, 'PYTHON')
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.slope_deg_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_slope_deg_field, 0, 'PYTHON')
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.slope_rad_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_slope_rad_field, 0, 'PYTHON')
         arcpy.CalculateField_management(
-            hru_polygon_layer, hru.slope_pct_field, 0, 'PYTHON')
+            hru_polygon_layer, hru.dem_slope_pct_field, 0, 'PYTHON')
         # arcpy.CalculateField_management(
         #    hru_polygon_layer, hru.deplcrv_field, 0, 'PYTHON')
         # arcpy.CalculateField_management(
@@ -538,7 +535,7 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
         # logging.info('\nClearing JH parameters for ocean cells')
         arcpy.SelectLayerByAttribute_management(
             hru_polygon_layer, "NEW_SELECTION",
-            '"{0}" = 0 AND "{1}" = 0'.format(
+            '"{}" = 0 AND "{}" = 0'.format(
                 hru.type_field, hru.dem_adj_field))
         arcpy.CalculateField_management(
             hru_polygon_layer, hru.jh_coef_field, 0, 'PYTHON')
@@ -549,20 +546,6 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
         arcpy.Delete_management(hru_polygon_layer)
         del hru_polygon_layer
-
-
-def field_stat_func(input_path, value_field, stat='MAXIMUM'):
-    """"""
-    value_list = []
-    with arcpy.da.SearchCursor(input_path, value_field) as s_cursor:
-        for row in s_cursor:
-            value_list.append(row[0])
-    if stat.upper() in ['MAXIMUM', 'MAX']:
-        return max(value_list)
-    elif stat.upper() in ['MINIMUM', 'MIN']:
-        return min(value_list)
-    else:
-        return float(sum(value_list)) / count(value_list)
 
 
 def arg_parse():
@@ -577,7 +560,7 @@ def arg_parse():
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
     parser.add_argument(
-        '--debug', default=logging.INFO, const=logging.DEBUG,
+        '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
 
@@ -591,9 +574,10 @@ if __name__ == '__main__':
     args = arg_parse()
 
     logging.basicConfig(level=args.loglevel, format='%(message)s')
-    logging.info('\n{0}'.format('#'*80))
-    log_f = '{0:<20s} {1}'
-    logging.info(log_f.format('Run Time Stamp:', dt.datetime.now().isoformat(' ')))
+    logging.info('\n{}'.format('#' * 80))
+    log_f = '{:<20s} {}'
+    logging.info(log_f.format(
+        'Run Time Stamp:', dt.datetime.now().isoformat(' ')))
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 
