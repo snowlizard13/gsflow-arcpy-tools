@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW soil parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-08-04
+# Created       2016-08-05
 # Python:       2.7
 #--------------------------------
 
@@ -336,7 +336,7 @@ def soil_parameters(config_path, overwrite_flag=False, debug_flag=False):
     arcpy.CalculateField_management(
         hru_polygon_layer, hru.ssr2gw_rate_field,
         '!{}! * (3600 * 24 / (2.54 * 10000)) * (1 - !{}!) * {}'.format(
-            hru.ksat_field, hru.slope_rad_field, porosity_flt),
+            hru.ksat_field, hru.dem_slope_rad_field, porosity_flt),
         'PYTHON')
     arcpy.SelectLayerByAttribute_management(
         hru_polygon_layer, "SWITCH_SELECTION")
@@ -366,7 +366,7 @@ def soil_parameters(config_path, overwrite_flag=False, debug_flag=False):
     arcpy.CalculateField_management(
         hru_polygon_layer, hru.slowcoef_lin_field,
         'slowcoef_lin(!{0}!, !{1}!, {2}, !{3}!, {4})'.format(
-            hru.ksat_field, hru.slope_rad_field, porosity_flt,
+            hru.ksat_field, hru.dem_slope_rad_field, porosity_flt,
             hru.flow_dir_field, hru.cs),
         'PYTHON', slowcoef_lin_cb)
     arcpy.SelectLayerByAttribute_management(

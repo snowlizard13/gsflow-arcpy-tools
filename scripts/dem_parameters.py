@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW DEM parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-08-04
+# Created       2016-08-05
 # Python:       2.7
 #--------------------------------
 
@@ -135,7 +135,7 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
     temp_adj_remap_path = os.path.join(remap_ws, temp_adj_remap_name)
     remap_path_list = [aspect_remap_path, temp_adj_remap_path]
     for remap_path in remap_path_list:
-        remap_check(remap_path)
+        support.remap_check(remap_path)
 
     # DEADBEEF
     # if not os.path.isfile(aspect_remap_path):
@@ -289,25 +289,26 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Calculate filled DEM, flow_dir, & flow_acc
     logging.info('\nCalculating filled DEM raster')
-    dem_fill_obj = Fill(dem_path)
+    dem_fill_obj = arcpy.sa.Fill(dem_path)
     dem_fill_obj.save(dem_fill_path)
     del dem_fill_obj
     if calc_flow_dir_flag:
         logging.info('Calculating flow direction raster')
         dem_fill_obj = arcpy.sa.Raster(dem_fill_path)
-        flow_dir_obj = FlowDirection(dem_fill_obj, True)
+        flow_dir_obj = arcpy.sa.FlowDirection(dem_fill_obj, True)
         flow_dir_obj.save(flow_dir_path)
         del flow_dir_obj, dem_fill_obj
     if calc_flow_acc_flag:
         logging.info('Calculating flow accumulation raster')
         flow_dir_obj = arcpy.sa.Raster(flow_dir_path)
-        flow_acc_obj = FlowAccumulation(flow_dir_obj)
+        flow_acc_obj = arcpy.sa.FlowAccumulation(flow_dir_obj)
         flow_acc_obj.save(flow_acc_path)
         del flow_acc_obj, flow_dir_obj
     if calc_flow_acc_dem_flag:
         # flow_acc_dem_obj = dem_fill_obj * flow_acc_obj
         # Low pass filter of flow_acc then take log10
-        flow_acc_filter_obj = Filter(Raster(flow_acc_path), 'LOW', 'NODATA')
+        flow_acc_filter_obj = arcpy.sa.Filter(
+            arcpy.sa.Raster(flow_acc_path), 'LOW', 'NODATA')
         flow_acc_filter_obj *= flow_acc_dem_factor
         flow_acc_filter_obj.save(flow_acc_filter_path)
         flow_acc_dem_obj = arcpy.sa.Raster(dem_fill_path) * flow_acc_filter_obj
@@ -315,25 +316,26 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
         del flow_acc_dem_obj, flow_acc_filter_obj
 
     # Calculate an integer version of DEM for median zonal stats
-    dem_integer_obj = Int(Raster(dem_path) * 100)
+    dem_integer_obj = arcpy.sa.Int(arcpy.sa.Raster(dem_path) * 100)
     dem_integer_obj.save(dem_integer_path)
     del dem_integer_obj
 
     # Calculate slope
     logging.info('Calculating slope raster')
-    dem_slope_obj = Slope(dem_fill_path, 'DEGREE')
+    dem_slope_obj = arcpy.sa.Slope(dem_fill_path, 'DEGREE')
     # Setting small slopes to zero
     logging.info('  Setting slopes <= 0.01 to 0')
-    dem_slope_obj = Con(dem_slope_obj <= 0.01, 0, dem_slope_obj)
+    dem_slope_obj = arcpy.sa.Con(dem_slope_obj <= 0.01, 0, dem_slope_obj)
     dem_slope_obj.save(dem_slope_path)
     del dem_slope_obj
 
     # Calculate aspect
     logging.info('Calculating aspect raster')
-    dem_aspect_obj = Aspect(dem_fill_path)
+    dem_aspect_obj = arcpy.sa.Aspect(dem_fill_path)
     # Set small slopes to -1 aspect
     logging.debug('  Setting aspect for slopes <= 0.01 to -1')
-    dem_aspect_obj = Con(Raster(dem_slope_path) > 0.01, dem_aspect_obj, -1)
+    dem_aspect_obj = arcpy.sa.Con(
+        arcpy.sa.Raster(dem_slope_path) > 0.01, dem_aspect_obj, -1)
     dem_aspect_obj.save(dem_aspect_path)
     del dem_aspect_obj
 
@@ -346,7 +348,7 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Temperature Aspect Adjustment
     logging.info('Calculating temperature aspect adjustment raster')
-    temp_adj_obj = Float(ReclassByASCIIFile(
+    temp_adj_obj = arcpy.sa.Float(arcpy.sa.ReclassByASCIIFile(
         dem_aspect_reclass_path, temp_adj_remap_path))
     # Since reclass can't remap to floats directly
     # Values are scaled by 10 and stored as integers
@@ -411,7 +413,8 @@ def dem_parameters(config_path, overwrite_flag=False, debug_flag=False):
             '"{}" > 0'.format(hru.dem_count_field))
         arcpy.CalculateField_management(
             hru_polygon_layer, hru.dem_flowacc_field,
-            'float(!{}!) / !{}!'.format(hru.dem_sum_field, hru.dem_count_field),
+            'float(!{}!) / !{}!'.format(
+                hru.dem_sum_field, hru.dem_count_field),
             'PYTHON')
         # Clear dem_flowacc for any cells that have zero sum or count
         arcpy.SelectLayerByAttribute_management(

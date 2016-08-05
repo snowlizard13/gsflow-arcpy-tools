@@ -478,7 +478,7 @@ def zonal_stats_func(zs_dict, polygon_path, point_path, hru_param,
             fields = [
                 f.name for f_i, f in enumerate(arcpy.ListFields(zs_table))
                 if f_i in [1, 4]]
-            logging.info(fields)
+            logging.debug('    Fields: {}'.format(', '.join(fields)))
             for row in arcpy.da.SearchCursor(zs_table, fields):
                 # Set NoData value for cells that are entirely NoData
                 if row[1] is None:
@@ -554,7 +554,7 @@ def field_duplicate_check(table_path, field_name, n=None):
     logging.debug('    field:    {}'.format(field_name))
     logging.debug('    features: {}'.format(n))
     logging.debug('    n32_max:  {}'.format(n32_max))
-    logging.debug('    2**32:    {}'.format(2**32))
+    logging.debug('    2**32:    {}'.format(2 ** 32))
     logging.debug('    maxsize:  {}'.format(sys.maxsize))
 
     if sys.maxsize > 2**32 or n < n32_max:
@@ -890,6 +890,7 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
     logging.debug('  Target snap:     {}'.format(target_extent.lowerLeft))
     logging.debug('  Target cellsize: {}'.format(target_cs))
     logging.debug('  Target spatref:  {}'.format(target_sr.name))
+
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
     # Project the HRU extent to the raster spatial reference
     hru_corners = [
@@ -898,6 +899,7 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
         [hru_extent.XMax, hru_extent.YMin],
         [hru_extent.XMin, hru_extent.YMin],
         [hru_extent.XMin, hru_extent.YMax]]
+
     # Add points between corners
     hru_points = []
     for point_a, point_b in zip(hru_corners[:-1], hru_corners[1:]):
@@ -907,6 +909,7 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
         for x, y in zip(np.linspace(point_a[0], point_b[0], steps + 1),
                         np.linspace(point_a[1], point_b[1], steps + 1)):
             hru_points.append(arcpy.Point(x,y))
+
     # Project all points to output spatial reference and get projected extent
     transform = transform_func(hru_sr, target_sr)
     if transform:
@@ -918,11 +921,13 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
             arcpy.Array(hru_points), hru_sr).projectAs(target_sr).extent
     logging.debug('  Projected Extent:\n  {}'.format(
         extent_string(projected_extent)))
+
     # Adjust extent to match snap
     projected_extent = adjust_extent_to_snap(
         projected_extent, target_extent.lowerLeft, target_cs, 'EXPAND', False)
     logging.debug('  Snapped Extent:\n  {}'.format(
         extent_string(projected_extent)))
+
     # Buffer extent 4 input cells
     projected_extent = buffer_extent_func(projected_extent, 4 * target_cs)
     # This will cause problems when target cellsize is in decimal degrees
@@ -939,30 +944,35 @@ def project_raster_func(input_raster, output_raster, output_sr,
     """"""
     # Input raster can be a raster object or a raster path
     # print isinstance(input_raster, Raster), isinstance(input_raster, str)
-    try:
-        input_extent = arcpy.sa.Raster(input_raster).extent
-    except:
-        input_extent = input_raster.extent
-    # This is the "actual" input cellsize
+    # cellsize is the "actual" input cellsize
     #   and is needed to get the snapping
     # This could be passed as an input to the function
-    input_cs = arcpy.sa.Raster(input_raster).meanCellWidth
+    try:
+        input_extent = arcpy.sa.Raster(input_raster).extent
+        input_cs = arcpy.sa.Raster(input_raster).meanCellWidth
+    except:
+        input_extent = input_raster.extent
+        input_cs = input_raster.meanCellWidth
+
     # DEADBEEF - Arc10.2 ProjectRaster does not honor extent
     # Clip the input raster with the projected HRU extent first
     # Project extent from "output" to "input" to get clipping extent
     proj_extent = project_hru_extent_func(
         hru_param.extent, hru_param.cs, output_sr,
         input_extent, input_cs, input_sr)
+
     # clip_path = output_raster.replace('.img', '_clip.img')
     clip_path = os.path.join('in_memory', 'clip_raster')
     env.extent = proj_extent
     arcpy.Clip_management(
         input_raster, ' '.join(str(proj_extent).split()[:4]), clip_path)
     arcpy.ClearEnvironment('extent')
+
     # Then project the clipped raster
     arcpy.ProjectRaster_management(
         clip_path, output_raster, output_sr, proj_method.upper(), output_cs,
         transform_str, reg_point, input_sr)
+
     # Cleanup
     arcpy.Delete_management(clip_path)
 
@@ -996,6 +1006,7 @@ def zone_by_area_func(zone_path, zone_field, zone_value, hru_param_path,
     zone_value_field = 'ZONE_VALUE'
     int_area_field = 'INT_AREA'
     int_pct_field = 'INT_PCT'
+
     # Need to set zone value into a field before intersect
     # If zone_value is FID, add 1 so that only non-lake cells are 0
     arcpy.AddField_management(zone_path, zone_value_field, 'LONG')

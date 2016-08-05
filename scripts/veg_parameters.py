@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW vegetation parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-08-04
+# Created       2016-08-05
 # Python:       2.7
 #--------------------------------
 
@@ -33,7 +33,7 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = support.support.HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
@@ -199,12 +199,12 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     # Check that remaps have all necessary values
     logging.info('\nChecking remap tables against all raster cells')
     logging.info('  (i.e. even those outside the study area)')
-    support.remap_check_func(cov_type_remap_path, veg_type_orig_path)
-    support.remap_check_func(covden_sum_remap_path, veg_cover_orig_path)
-    support.remap_check_func(snow_intcp_remap_path, veg_type_orig_path)
-    support.remap_check_func(srain_intcp_remap_path, veg_type_orig_path)
-    support.remap_check_func(wrain_intcp_remap_path, veg_type_orig_path)
-    support.remap_check_func(root_depth_remap_path, veg_type_orig_path)
+    check_remap_keys(cov_type_remap_path, veg_type_orig_path)
+    check_remap_keys(covden_sum_remap_path, veg_cover_orig_path)
+    check_remap_keys(snow_intcp_remap_path, veg_type_orig_path)
+    check_remap_keys(srain_intcp_remap_path, veg_type_orig_path)
+    check_remap_keys(wrain_intcp_remap_path, veg_type_orig_path)
+    check_remap_keys(root_depth_remap_path, veg_type_orig_path)
 
 
     # Assume all vegetation rasters will need to be rebuilt
@@ -333,7 +333,8 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Short-wave radiation transmission coefficent
     logging.info('Calculating {}'.format(hru.rad_trncf_field))
-    rad_trncf_obj = 0.9917 * Exp(-2.7557 * arcpy.sa.Raster(covden_win_path))
+    rad_trncf_obj = 0.9917 * arcpy.sa.Exp(
+        -2.7557 * arcpy.sa.Raster(covden_win_path))
     rad_trncf_obj.save(rad_trncf_path)
     del rad_trncf_obj
 
@@ -409,7 +410,7 @@ def get_raster_values(raster_path):
         for row in arcpy.da.SearchCursor(raster_path, ['Value'])]
 
 
-def remap_check_func(remap_path, raster_path):
+def check_remap_keys(remap_path, raster_path):
     """"""
     logging.info('  {} - {}'.format(
         os.path.basename(remap_path), os.path.basename(raster_path)))

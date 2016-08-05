@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW stream parameters
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-08-04
+# Created       2016-08-05
 # Python:       2.7
 #--------------------------------
 
@@ -38,7 +38,7 @@ def stream_parameters(config_path, overwrite_flag=False, debug_flag=False):
     """
 
     # Initialize hru_parameters class
-    hru = support.support.HRUParameters(config_path)
+    hru = support.HRUParameters(config_path)
 
     # Open input parameter config file
     inputs_cfg = ConfigParser.ConfigParser()
