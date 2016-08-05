@@ -21,7 +21,7 @@ from arcpy import env
 import support_functions as support
 
 
-def daymet_parameters(config_path, data_name='ALL',
+def daymet_parameters(config_path, data_name='PPT',
                       overwrite_flag=False, debug_flag=False, ):
     """Calculate GSFLOW DAYMET Parameters
 
@@ -58,7 +58,7 @@ def daymet_parameters(config_path, data_name='ALL',
     logging.info('\nGSFLOW DAYMET Parameters')
 
     # DAYMET
-    daymet_ws = inputs_cfg.get('INPUTS', 'prism_folder')
+    daymet_ws = inputs_cfg.get('INPUTS', 'daymet_folder')
     daymet_proj_method = inputs_cfg.get(
         'INPUTS', 'prism_projection_method')
     daymet_cs = inputs_cfg.getint('INPUTS', 'prism_cellsize')
@@ -210,25 +210,25 @@ def daymet_parameters(config_path, data_name='ALL',
             zs_daymet_dict, hru.polygon_path, hru.point_path, hru)
         del zs_daymet_dict
 
-    # Jensen-Haise Potential ET air temperature coefficient
-    # Update Jensen-Haise PET estimate using DAYMET air temperature
-    # DEADBEEF - First need to figure out month with highest Tmax
-    #            Then get Tmin for same month
-    if calc_jh_coef_flag:
-        logging.info('\nRe-Calculating JH_COEF_HRU')
-        logging.info('  Using DAYMET temperature values')
-        tmax_field_list = [
-            '!TMAX_{:02d}!'.format(m) for m in range(1, 13)]
-        tmin_field_list = [
-            '!TMIN_{:02d}!'.format(m) for m in range(1, 13)]
-        tmax_expr = 'max([{}])'.format(','.join(tmax_field_list))
-        arcpy.CalculateField_management(
-            hru.polygon_path, hru.jh_tmax_field, tmax_expr, 'PYTHON')
-        # Sort TMAX and get TMIN for same month
-        tmin_expr = 'max(zip([{}],[{}]))[1]'.format(
-            ','.join(tmax_field_list), ','.join(tmin_field_list))
-        arcpy.CalculateField_management(
-            hru.polygon_path, hru.jh_tmin_field, tmin_expr, 'PYTHON')
+    # # Jensen-Haise Potential ET air temperature coefficient
+    # # Update Jensen-Haise PET estimate using DAYMET air temperature
+    # # DEADBEEF - First need to figure out month with highest Tmax
+    # #            Then get Tmin for same month
+    # if calc_jh_coef_flag:
+    #     logging.info('\nRe-Calculating JH_COEF_HRU')
+    #     logging.info('  Using DAYMET temperature values')
+    #     tmax_field_list = [
+    #         '!TMAX_{:02d}!'.format(m) for m in range(1, 13)]
+    #     tmin_field_list = [
+    #         '!TMIN_{:02d}!'.format(m) for m in range(1, 13)]
+    #     tmax_expr = 'max([{}])'.format(','.join(tmax_field_list))
+    #     arcpy.CalculateField_management(
+    #         hru.polygon_path, hru.jh_tmax_field, tmax_expr, 'PYTHON')
+    #     # Sort TMAX and get TMIN for same month
+    #     tmin_expr = 'max(zip([{}],[{}]))[1]'.format(
+    #         ','.join(tmax_field_list), ','.join(tmin_field_list))
+    #     arcpy.CalculateField_management(
+    #         hru.polygon_path, hru.jh_tmin_field, tmin_expr, 'PYTHON')
 
 
 def arg_parse():
@@ -239,7 +239,7 @@ def arg_parse():
         '-i', '--ini', required=True,
         help='Project input file', metavar='PATH')
     parser.add_argument(
-        '-t', '--type', default='ALL',
+        '-t', '--type', default='PPT',
         help='DAYMET Data Type (TMAX, TMIN, PPT, ALL)')
     parser.add_argument(
         '-o', '--overwrite', default=False, action="store_true",
