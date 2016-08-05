@@ -1,5 +1,5 @@
 #--------------------------------
-# Name:         support.py
+# Name:         support_functions.py
 # Purpose:      GSFLOW parameter support functions
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
@@ -908,7 +908,7 @@ def project_hru_extent_func(hru_extent, hru_cs, hru_sr,
                         np.linspace(point_a[1], point_b[1], steps + 1)):
             hru_points.append(arcpy.Point(x,y))
     # Project all points to output spatial reference and get projected extent
-    transform = support.transform_func(hru_sr, target_sr)
+    transform = transform_func(hru_sr, target_sr)
     if transform:
         projected_extent = arcpy.Polygon(
             arcpy.Array(hru_points), hru_sr).projectAs(
@@ -985,7 +985,7 @@ def zone_by_area_func(zone_path, zone_field, zone_value, hru_param_path,
         zone_field (str):
         zone_value (int):
         hru_param_path (str):
-        hru_param: class:`support.HRUParameters`
+        hru_param: class:`HRUParameters`
         hru_area_field (str):
         zone_area_field (str):
         area_pct ():
@@ -1080,7 +1080,7 @@ def zone_by_centroid_func(zone_path, zone_field, zone_value,
         zone_value (int):
         hru_param_path (str):
         hru_point_path (str):
-        hru_param: class:`support.HRUParameters`
+        hru_param: class:`HRUParameters`
 
     Returns:
         None
