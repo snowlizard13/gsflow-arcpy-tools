@@ -61,7 +61,7 @@ def prism_800m_parameters(config_path, data_name='ALL',
     prism_ws = inputs_cfg.get('INPUTS', 'prism_folder')
     prism_proj_method = inputs_cfg.get('INPUTS', 'prism_projection_method')
     prism_cs = inputs_cfg.getint('INPUTS', 'prism_cellsize')
-    calc_prism_jh_coef_flag = inputs_cfg.getboolean(
+    calc_jh_coef_flag = inputs_cfg.getboolean(
         'INPUTS', 'calc_prism_jh_coef_flag')
 
     # Check input paths
@@ -215,7 +215,7 @@ def prism_800m_parameters(config_path, data_name='ALL',
     # Update Jensen-Haise PET estimate using PRISM air temperature
     # DEADBEEF - First need to figure out month with highest Tmax
     #            Then get Tmin for same month
-    if calc_prism_jh_coef_flag:
+    if calc_jh_coef_flag:
         logging.info('\nRe-Calculating JH_COEF_HRU')
         logging.info('  Using PRISM temperature values')
         tmax_field_list = ['!TMAX_{:02d}!'.format(m) for m in range(1, 13)]

@@ -1,6 +1,6 @@
 #--------------------------------
-# Name:         prism_4km_normals.py
-# Purpose:      GSFLOW PRISM parameters from default 400m normals
+# Name:         daymet_normals.py
+# Purpose:      GSFLOW DAYMET parameters from 1km normals
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
 # Created       2016-08-04
@@ -21,13 +21,13 @@ from arcpy import env
 import support_functions as support
 
 
-def prism_4km_parameters(config_path, data_name='ALL',
-                         overwrite_flag=False, debug_flag=False, ):
-    """Calculate GSFLOW PRISM Parameters
+def daymet_parameters(config_path, data_name='ALL',
+                      overwrite_flag=False, debug_flag=False, ):
+    """Calculate GSFLOW DAYMET Parameters
 
     Args:
-        config_file (str): Project config file path
-        data_name -- the prism data type (ALL, PPT, TMAX, TMIN, etc.)
+        config_file: Project config file path
+        data_name (str): DAYMET data type (ALL, PPT, TMAX, TMIN, etc.)
         ovewrite_flag (bool): if True, overwrite existing files
         debug_flag (bool): if True, enable debug level logging
 
@@ -49,18 +49,19 @@ def prism_4km_parameters(config_path, data_name='ALL',
         sys.exit()
 
     # Log DEBUG to file
-    log_file_name = 'prism_4km_normals_log.txt'
+    log_file_name = 'daymet_normals_log.txt'
     log_console = logging.FileHandler(
         filename=os.path.join(hru.log_ws, log_file_name), mode='w')
     log_console.setLevel(logging.DEBUG)
     log_console.setFormatter(logging.Formatter('%(message)s'))
     logging.getLogger('').addHandler(log_console)
-    logging.info('\nGSFLOW PRISM Parameters')
+    logging.info('\nGSFLOW DAYMET Parameters')
 
-    # PRISM
-    prism_ws = inputs_cfg.get('INPUTS', 'prism_folder')
-    prism_proj_method = inputs_cfg.get('INPUTS', 'prism_projection_method')
-    prism_cs = inputs_cfg.getint('INPUTS', 'prism_cellsize')
+    # DAYMET
+    daymet_ws = inputs_cfg.get('INPUTS', 'prism_folder')
+    daymet_proj_method = inputs_cfg.get(
+        'INPUTS', 'prism_projection_method')
+    daymet_cs = inputs_cfg.getint('INPUTS', 'prism_cellsize')
     calc_jh_coef_flag = inputs_cfg.getboolean(
         'INPUTS', 'calc_prism_jh_coef_flag')
 
@@ -70,22 +71,22 @@ def prism_4km_parameters(config_path, data_name='ALL',
             '\nERROR: Fishnet ({}) does not exist'.format(
                 hru.polygon_path))
         sys.exit()
-    # Check that PRISM folder is valid
-    if not os.path.isdir(prism_ws):
+    # Check that DAYMET folder is valid
+    if not os.path.isdir(daymet_ws):
         logging.error(
-            '\nERROR: PRISM folder ({}) does not exist'.format(prism_ws))
+            '\nERROR: DAYMET folder ({}) does not exist'.format(daymet_ws))
         sys.exit()
     proj_method_list = ['BILINEAR', 'CUBIC', 'NEAREST']
-    if prism_proj_method.upper() not in proj_method_list:
-        logging.error('\nERROR: PRISM projection method must be: {}'.format(
+    if daymet_proj_method.upper() not in proj_method_list:
+        logging.error('\nERROR: DAYMET projection method must be: {}'.format(
             ', '.join(proj_method_list)))
         sys.exit()
     logging.debug('  Projection method:    {}'.format(
-        prism_proj_method.upper()))
+        daymet_proj_method.upper()))
 
     # Check other inputs
-    if prism_cs <= 0:
-        logging.error('\nERROR: PRISM cellsize must be greater than 0\n')
+    if daymet_cs <= 0:
+        logging.error('\nERROR: DAYMET cellsize must be greater than 0\n')
         sys.exit()
 
     # Set ArcGIS environment variables
@@ -95,83 +96,82 @@ def prism_4km_parameters(config_path, data_name='ALL',
     env.workspace = hru.param_ws
     env.scratchWorkspace = hru.scratch_ws
 
-    # PRISM data names
+    # DAYMET data names
     if data_name == 'ALL':
         data_name_list = ['PPT', 'TMAX', 'TMIN']
     else:
         data_name_list = [data_name]
 
     # Set month list
-    month_list = ['{0:02d}'.format(m) for m in range(1, 13)]
+    month_list = ['{:02d}'.format(m) for m in range(1, 13)]
     # month_list.extend(['annual'])
 
     # Check fields
-    logging.info('\nAdding PRISM fields if necessary')
+    logging.info('\nAdding DAYMET fields if necessary')
     for data_name in data_name_list:
         for month in month_list:
             support.add_field_func(
-                hru.polygon_path, '{}_{}'.format(data_name, month), 'DOUBLE')
+                hru.polygon_path, '{}_{}'.format(data_name, month),
+                'DOUBLE')
 
-    # Process each PRISM data type
-    logging.info('\nProjecting/clipping PRISM mean monthly rasters')
+    # Process each DAYMET data type
+    logging.info('\nProjecting/clipping DAYMET mean monthly rasters')
     for data_name in data_name_list:
         logging.info('\n{}'.format(data_name))
-        prism_normal_re = re.compile(
-            'PRISM_(?P<type>%s)_30yr_normal_4kmM2_(?P<month>\d{2})_bil.bil$' % data_name,
+        daymet_normal_re = re.compile(
+            'daymet_(?P<type>%s)_30yr_normal_(?P<month>\d{2}).img$' % data_name,
             re.IGNORECASE)
 
-        # Search all files & subfolders in prism folder
+        # Search all files & subfolders in DAYMET folder
         #   for images that match data type
         input_raster_dict = dict()
-        for root, dirs, files in os.walk(prism_ws):
+        for root, dirs, files in os.walk(daymet_ws):
             for file_name in files:
-                prism_normal_match = prism_normal_re.match(file_name)
-                if prism_normal_match:
-                    month_str = prism_normal_match.group('month')
+                daymet_normal_match = daymet_normal_re.match(file_name)
+                if daymet_normal_match:
+                    month_str = daymet_normal_match.group('month')
                     input_raster_dict[month_str] = os.path.join(
-                        prism_ws, root, file_name)
+                        daymet_ws, root, file_name)
         if not input_raster_dict:
             logging.error(
-                ('\nERROR: No PRISM rasters were found matching the ' +
-                 'following pattern:\n  {}\n\nDouble check that the script ' +
-                 'and folder are for the same resolution ' +
-                 '(800m vs 4km)\n\n').format(prism_normal_re.pattern))
+                ('\nERROR: No DAYMET rasters were found matching the ' +
+                 'following pattern:\n  {}\n\n').format(
+                    daymet_normal_re.pattern))
             logging.error()
             sys.exit()
 
-        # PRISM input data workspace
-        # input_ws = os.path.join(prism_ws, data_name.lower())
+        # DAYMET input data workspace
+        # input_ws = os.path.join(daymet_ws, data_name.lower())
         # if not os.path.isdir(input_ws):
-        #    logging.error('\nERROR: The PRISM {} folder does not exist'.format(
+        #    logging.error('\nERROR: The DAYMET {} folder does not exist'.format(
         #        data_name.lower()))
         #    sys.exit()
 
-        # PRISM output data workspace
+        # DAYMET output data workspace
         output_ws = os.path.join(
             hru.param_ws, data_name.lower() + '_rasters')
         if not os.path.isdir(output_ws):
             os.mkdir(output_ws)
 
-        # Remove all non year/month rasters in PRISM temp folder
-        logging.info('  Removing existing PRISM files')
+        # Remove all non year/month rasters in DAYMET temp folder
+        logging.info('  Removing existing DAYMET files')
         for item in os.listdir(output_ws):
-            # if prism_normal_re.match(item) and overwrite_flag:
-            if prism_normal_re.match(item):
+            if daymet_normal_re.match(item):
                 os.remove(os.path.join(output_ws, item))
 
         # Extract, project/resample, clip
         # Process images by month
-        zs_prism_dict = dict()
+        zs_daymet_dict = dict()
         # env.extent = hru.extent
         for month in month_list:
             logging.info('  Month: {}'.format(month))
 
-            # Projected/clipped PRISM raster
+            # Projected/clipped DAYMET raster
             input_raster = input_raster_dict[month]
-            # input_name = 'PRISM_{}_30yr_normal_4kmM2_{1}_bil.bil'.format(
+            # input_name = 'daymet_{}_30yr_normal_800mM2_{}_bil.bil'.format(
             #    data_name.lower(), input_month)
             # input_raster = os.path.join(input_ws, input_name)
-            output_name = 'PRISM_{}_30yr_normal_4kmM2_{}.img'.format(
+            output_name = 'daymet_{}_normal_{}.img'.format(
                 data_name.lower(), month)
             output_raster = os.path.join(output_ws, output_name)
 
@@ -181,21 +181,21 @@ def prism_4km_parameters(config_path, data_name='ALL',
             if transform_str:
                 logging.debug('  Transform: {}'.format(transform_str))
 
-            # Project PRISM rasters to HRU coordinate system
+            # Project DAYMET rasters to HRU coordinate system
             # DEADBEEF - Arc10.2 ProjectRaster does not extent
             support.project_raster_func(
                 input_raster, output_raster, hru.sr,
-                prism_proj_method.upper(), prism_cs, transform_str,
+                daymet_proj_method.upper(), daymet_cs, transform_str,
                 '{} {}'.format(hru.ref_x, hru.ref_y), input_sr, hru)
             # arcpy.ProjectRaster_management(
             #    input_raster, output_raster, hru.sr,
-            #    prism_proj_method.upper(), prism_cs, transform_str,
+            #    daymet_proj_method.upper(), daymet_cs, transform_str,
             #    '{} {}'.format(hru.ref_x, hru.ref_y),
             #    input_sr)
 
             # Save parameters for calculating zonal stats
             zs_field = '{}_{}'.format(data_name, month)
-            zs_prism_dict[zs_field] = [output_raster, 'MEAN']
+            zs_daymet_dict[zs_field] = [output_raster, 'MEAN']
 
             # Cleanup
             del input_raster, output_raster, output_name
@@ -205,20 +205,22 @@ def prism_4km_parameters(config_path, data_name='ALL',
         # arcpy.ClearEnvironment('extent')
 
         # Calculate zonal statistics
-        logging.info('\nCalculating PRISM zonal statistics')
+        logging.info('\nCalculating DAYMET zonal statistics')
         support.zonal_stats_func(
-            zs_prism_dict, hru.polygon_path, hru.point_path, hru)
-        del zs_prism_dict
+            zs_daymet_dict, hru.polygon_path, hru.point_path, hru)
+        del zs_daymet_dict
 
     # Jensen-Haise Potential ET air temperature coefficient
-    # Update Jensen-Haise PET estimate using PRISM air temperature
+    # Update Jensen-Haise PET estimate using DAYMET air temperature
     # DEADBEEF - First need to figure out month with highest Tmax
     #            Then get Tmin for same month
     if calc_jh_coef_flag:
         logging.info('\nRe-Calculating JH_COEF_HRU')
-        logging.info('  Using PRISM temperature values')
-        tmax_field_list = ['!TMAX_{:02d}!'.format(m) for m in range(1, 13)]
-        tmin_field_list = ['!TMIN_{:02d}!'.format(m) for m in range(1, 13)]
+        logging.info('  Using DAYMET temperature values')
+        tmax_field_list = [
+            '!TMAX_{:02d}!'.format(m) for m in range(1, 13)]
+        tmin_field_list = [
+            '!TMIN_{:02d}!'.format(m) for m in range(1, 13)]
         tmax_expr = 'max([{}])'.format(','.join(tmax_field_list))
         arcpy.CalculateField_management(
             hru.polygon_path, hru.jh_tmax_field, tmax_expr, 'PYTHON')
@@ -230,16 +232,15 @@ def prism_4km_parameters(config_path, data_name='ALL',
 
 
 def arg_parse():
-    """"""
     parser = argparse.ArgumentParser(
-        description='PRISM 4km Normals',
+        description='DAYMET Normals',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '-i', '--ini', required=True,
         help='Project input file', metavar='PATH')
     parser.add_argument(
         '-t', '--type', default='ALL',
-        help='PRISM Data Type (TMAX, TMIN, PPT, ALL)')
+        help='DAYMET Data Type (TMAX, TMIN, PPT, ALL)')
     parser.add_argument(
         '-o', '--overwrite', default=False, action="store_true",
         help='Force overwrite of existing files')
@@ -247,10 +248,6 @@ def arg_parse():
         '-d', '--debug', default=logging.INFO, const=logging.DEBUG,
         help='Debug level logging', action="store_const", dest="loglevel")
     args = parser.parse_args()
-
-    # Convert relative paths to absolute paths
-    if os.path.isfile(os.path.abspath(args.ini)):
-        args.ini = os.path.abspath(args.ini)
     return args
 
 
@@ -265,7 +262,12 @@ if __name__ == '__main__':
     logging.info(log_f.format('Current Directory:', os.getcwd()))
     logging.info(log_f.format('Script:', os.path.basename(sys.argv[0])))
 
-    prism_4km_parameters(
+    # Convert input file to an absolute path
+    if os.path.isfile(os.path.abspath(args.ini)):
+        args.ini = os.path.abspath(args.ini)
+
+    # Calculate GSFLOW DAYMET Parameters
+    daymet_parameters(
         config_path=args.ini, data_name=args.type,
         overwrite_flag=args.overwrite,
         debug_flag=args.loglevel==logging.DEBUG)
