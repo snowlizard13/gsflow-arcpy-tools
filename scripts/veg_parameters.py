@@ -78,6 +78,29 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     wrain_intcp_remap_name = inputs_cfg.get('INPUTS', 'wrain_intcp_remap')
     root_depth_remap_name = inputs_cfg.get('INPUTS', 'root_depth_remap')
 
+    # Get remap conversion factors
+    try:
+        snow_intcp_remap_factor = inputs_cfg.getfloat(
+            'INPUTS', 'snow_intcp_remap_factor')
+    except:
+        snow_intcp_remap_factor = 0.01
+        logging.debug(
+            '  Using default snow_intcp_remap_factor of 0.01')
+    try:
+        wrain_intcp_remap_factor = inputs_cfg.getfloat(
+            'INPUTS', 'wrain_intcp_remap_factor')
+    except:
+        wrain_intcp_remap_factor = 0.01
+        logging.debug(
+            '  Using default wrain_intcp_remap_factor of 0.01')
+    try:
+        srain_intcp_remap_factor = inputs_cfg.getfloat(
+            'INPUTS', 'srain_intcp_remap_factor')
+    except:
+        srain_intcp_remap_factor = 0.01
+        logging.debug(
+            '  Using default srain_intcp_remap_factor of 0.01')
+
     # Check input paths
     if not arcpy.Exists(hru.polygon_path):
         logging.error(
@@ -295,7 +318,7 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     covden_win_obj = arcpy.sa.ReclassByASCIIFile(
         cov_type_path, covden_win_remap_path)
     covden_win_obj *= 0.01
-    covden_win_obj *=arcpy.sa.Raster(covden_sum_path)
+    covden_win_obj *= arcpy.sa.Raster(covden_sum_path)
     covden_win_obj.save(covden_win_path)
     del covden_win_obj
 
@@ -303,7 +326,8 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('Calculating SNOW_INTCP')
     logging.debug('  Reclassifying: {}'.format(snow_intcp_remap_path))
     snow_intcp_obj = arcpy.sa.ReclassByASCIIFile(
-        veg_type_path, snow_intcp_remap_path)
+        cov_type_path, snow_intcp_remap_path)
+    snow_intcp_obj *= snow_intcp_remap_factor
     snow_intcp_obj.save(snow_intcp_path)
     del snow_intcp_obj
 
@@ -311,7 +335,8 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('Calculating WRAIN_INTCP')
     logging.debug('  Reclassifying: {}'.format(wrain_intcp_remap_path))
     wrain_intcp_obj = arcpy.sa.ReclassByASCIIFile(
-        veg_type_path, wrain_intcp_remap_path)
+        cov_type_path, wrain_intcp_remap_path)
+    wrain_intcp_obj *= wrain_intcp_remap_factor
     wrain_intcp_obj.save(wrain_intcp_path)
     del wrain_intcp_obj
 
@@ -319,7 +344,8 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('Calculating SRAIN_INTCP')
     logging.debug('  Reclassifying: {}'.format(srain_intcp_remap_path))
     srain_intcp_obj = arcpy.sa.ReclassByASCIIFile(
-        veg_type_path, srain_intcp_remap_path)
+        cov_type_path, srain_intcp_remap_path)
+    srain_intcp_obj *= srain_intcp_remap_factor                           
     srain_intcp_obj.save(srain_intcp_path)
     del srain_intcp_obj
 
