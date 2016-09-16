@@ -224,9 +224,9 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     logging.info('  (i.e. even those outside the study area)')
     check_remap_keys(cov_type_remap_path, veg_type_orig_path)
     check_remap_keys(covden_sum_remap_path, veg_cover_orig_path)
-    check_remap_keys(snow_intcp_remap_path, veg_type_orig_path)
-    check_remap_keys(srain_intcp_remap_path, veg_type_orig_path)
-    check_remap_keys(wrain_intcp_remap_path, veg_type_orig_path)
+    #check_remap_keys(snow_intcp_remap_path, veg_type_orig_path)
+    #check_remap_keys(srain_intcp_remap_path, veg_type_orig_path)
+    #check_remap_keys(wrain_intcp_remap_path, veg_type_orig_path)
     check_remap_keys(root_depth_remap_path, veg_type_orig_path)
 
 
