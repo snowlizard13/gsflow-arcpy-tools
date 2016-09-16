@@ -370,10 +370,10 @@ def veg_parameters(config_path, overwrite_flag=False, debug_flag=False):
     zs_veg_dict[hru.cov_type_field] = [cov_type_path, 'MAJORITY']
     zs_veg_dict[hru.covden_sum_field] = [covden_sum_path, 'MEAN']
     zs_veg_dict[hru.covden_win_field] = [covden_win_path, 'MEAN']
-    zs_veg_dict[hru.snow_intcp_field] = [snow_intcp_path, 'MAJORITY']
-    zs_veg_dict[hru.srain_intcp_field] = [srain_intcp_path, 'MAJORITY']
-    zs_veg_dict[hru.wrain_intcp_field] = [wrain_intcp_path, 'MAJORITY']
-    zs_veg_dict[hru.root_depth_field] = [root_depth_path, 'MAJORITY']
+    zs_veg_dict[hru.snow_intcp_field] = [snow_intcp_path, 'MEAN']
+    zs_veg_dict[hru.srain_intcp_field] = [srain_intcp_path, 'MEAN']
+    zs_veg_dict[hru.wrain_intcp_field] = [wrain_intcp_path, 'MEAN']
+    zs_veg_dict[hru.root_depth_field] = [root_depth_path, 'MEAN']
     zs_veg_dict[hru.rad_trncf_field] = [rad_trncf_path, 'MEAN']
 
 
