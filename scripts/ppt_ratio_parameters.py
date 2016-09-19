@@ -331,6 +331,10 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
         ppt_zone_list = sorted(ppt_obs_dict.keys())
         logging.debug('  PPT Zones: {}'.format(ppt_zone_list))
 
+        # Default all zones to a PPT ratio of 1
+        ppt_ratio_dict = {z: [1] * 12 for z in ppt_zone_list}
+        ppt_ratio_dict[0] = 1
+
         # Get PPT HRU ID for scaling ratios if necessary
         # This could be read at the same time as the obs. values
         if ppt_hru_id_field:
@@ -372,10 +376,9 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
                         ppt_ratio_list = [
                             float(o) / p if p > 0 else 0
                             for o, p in zip(ppt_obs_list, ppt_gridded_list)]
-                        ppt_ratio_dict[int(row[0])] = ppt_ratio_list
+                        ppt_ratio_dict[ppt_zone] = ppt_ratio_list
             del ppt_hru_id_dict, zone_hru_id_dict, fields
-        else:
-            ppt_ratio_dict = {z: [1] * 12 for z in ppt_zone_list}
+
         logging.debug('  PPT Ratios:')
         for k, v in ppt_ratio_dict.items():
             logging.debug('    {}: {}'.format(
