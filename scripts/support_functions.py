@@ -3,7 +3,7 @@
 # Purpose:      GSFLOW parameter support functions
 # Notes:        ArcGIS 10.2 Version
 # Author:       Charles Morton
-# Created       2016-08-04
+# Created       2016-09-19
 # Python:       2.7
 #--------------------------------
 
@@ -122,7 +122,7 @@ class HRUParameters():
         logging.info('  Fishnet cellsize:   {}'.format(self.cs))
         logging.info('  Fishnet ref. point: {} {}'.format(
             self.ref_x, self.ref_y))
-        logging.debug('  Fishnet Buffer Cells: {}'.format(self.buffer_cells))
+        logging.debug('  Fishnet buffer cells: {}'.format(self.buffer_cells))
         # snap_pnt = arcpy.Point(self.ref_x, self.ref_y)
         # snap_pnt.X, snap_pnt.Y = self.ref_x, self.ref_y
 
