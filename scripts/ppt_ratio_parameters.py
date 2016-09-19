@@ -248,7 +248,6 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
 
     # Set month list based on flags
     month_list = range(1, 13)
-    ppt_obs_field_list = [ppt_obs_field_format.format(m) for m in month_list]
     ppt_field_list = [ppt_field_format.format(m) for m in month_list]
     ratio_field_list = [ratio_field_format.format(m) for m in month_list]
 
@@ -320,6 +319,8 @@ def ppt_ratio_parameters(config_path, overwrite_flag=False, debug_flag=False):
     if set_ppt_zones_flag:
         # Read mean monthly PPT values for each zone
         ppt_obs_dict = dict()
+        ppt_obs_field_list = [
+            ppt_obs_field_format.format(m) for m in month_list]
         fields = [ppt_zone_field] + ppt_obs_field_list
         logging.debug('  Obs. Fields: {}'.format(', '.join(fields)))
         with arcpy.da.SearchCursor(ppt_zone_path, fields) as s_cursor:
